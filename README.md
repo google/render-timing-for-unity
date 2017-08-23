@@ -28,19 +28,19 @@ GPU's tested: Snapdragon 821 (Adreno 530), Snapdragon 835 (Adreno 540)
 
 Quick start
 -----------
-Download the latest [RenderTiming Unity package](../../releases/latest/) and
-import it into your Unity project.
+1. download the latest [RenderTiming Unity package](../../releases/latest/) and
+import it into your Unity project
+2. add the RenderTiming component to an active object in your scene
+3. reference `RenderTiming.instance.deltaTime` from your in-app debug
+overlay, etc.
 
-Add the RenderTiming component to an active object in your scene.
-Reference `RenderTiming.instance.deltaTime` from your development HUD, etc.
+By default it will log GPU time to console once per second.  Disable via
+component's "Log Timing" field in the inspector.
 
 It will measure GPU time from the end of Update until the end of frame
 rendering.  (I.e. encompassing both eyes for VR stereo case.)
 See [`RenderTiming.cs`](RenderTiming/Assets/RenderTiming/RenderTiming.cs)
 source for additional caveats.
-
-By default it will log GPU time to console once per second.  Disable via
-component's "Log Timing" field in the inspector.
 
 Directory
 ---------
