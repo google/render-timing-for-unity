@@ -28,7 +28,7 @@ GPU's tested: Snapdragon 821 (Adreno 530), Snapdragon 835 (Adreno 540)
 
 Quick start
 -----------
-Download the latest [RenderTiming Unity package](releases/latest/) and
+Download the latest [RenderTiming Unity package](../../releases/latest/) and
 import it into your Unity project.
 
 Add the RenderTiming component to an active object in your scene.
