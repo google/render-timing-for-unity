@@ -1,0 +1,33 @@
+# Unity generated
+[Tt]emp/
+[Ll]ibrary/
+[Oo]bj/
+[Uu]nityGenerated/
+
+# Visual Studio / MonoDevelop generated
+ExportedObj/
+*.svd
+*.userprefs
+*.csproj
+*.pidb
+*.suo
+*.sln
+*.user
+*.unityproj
+*.booproj
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# Other
+[Bb]uild/
+[Bb]uilds/
+p4ignore.txt
+*~

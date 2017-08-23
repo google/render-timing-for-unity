@@ -1,0 +1,9 @@
+LIBRARY
+
+EXPORTS
+   UnityPluginLoad
+   UnityPluginUnload
+   SetDebugFunction
+   GetTiming
+   GetStartTimingFunc
+   GetEndTimingFunc
