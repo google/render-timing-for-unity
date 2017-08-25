@@ -7,14 +7,14 @@ in real-time to apps made with the Unity game engine.  Notably
 this works on mobile devices and has virtually no overhead.
 
 Typical use cases include:
-   * adding GPU frame time to an app's real-time debug display
+   * adding GPU frame time to an app's real-time debug overlay
    * getting instant, in-app feedback on coding changes which affect rendering,
      as well as visibility into performance regressions and problematic views
    * automated performance testing
 
 Caveats
 -------
-   * only Android is supported (adding other GL platforms is straightforward)
+   * **only Android is supported** (adding other GL platforms is straightforward)
    * quality varies among mobile implementations of GL_EXT_disjoint_timer_query.
      **Notably, some GPU's (e.g. Mali) don't provide a useful measurement
      at all.**
@@ -30,7 +30,7 @@ Quick start
 -----------
 1. download the latest [RenderTiming Unity package](../../releases/latest/) and
 import it into your Unity project
-2. add the RenderTiming component to an active object in your scene
+2. add the RenderTiming component to a suitable singleton object in your scene
 3. reference `RenderTiming.instance.deltaTime` from your in-app debug
 overlay, etc.
 
