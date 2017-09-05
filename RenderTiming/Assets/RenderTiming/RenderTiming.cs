@@ -66,6 +66,7 @@ public class RenderTiming : MonoBehaviour {
   private CommandBuffer commandBufferEnd;
   private Coroutine loggingCoroutine;
 
+  [AOT.MonoPInvokeCallback(typeof(MyDelegate))]
   static void DebugCallback(string str) {
     Debug.LogWarning("RenderTimingPlugin: " + str);
   }
