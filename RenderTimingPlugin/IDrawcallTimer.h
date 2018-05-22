@@ -21,7 +21,7 @@ public:
      *
      * This method starts the query for before the drawcall
      */
-    virtual void Start(UnityRenderingExtBeforeDrawCallParams drawcallParams) = 0;
+    virtual void Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) = 0;
 
     /*!
      * \brief Ends timing for the most recently started drawcall
@@ -46,9 +46,14 @@ public:
      * \brief Makes API-specific calls to resolve in-flight queries for the last frame
      */
     virtual void ResolveQueries() = 0;
+
+    uint8_t GetNextFrameIndex();
     
 protected:
     uint8_t _curFrame = 0;
+
+    // If this thing overflows then you should probably close your application
+    uint64_t _frameCounter = 0;
 };
 
 /*!
@@ -56,12 +61,21 @@ protected:
  */
 template <typename TimerType>
 class DrawcallTimer : public IDrawcallTimer {
-    public struct DrawcallQuery {
+public:
+    struct DrawcallQuery {
         TimerType StartQuery;
         TimerType EndQuery;
     };
 
+    struct UnityDrawCallParamsHasher {
+        std::size_t operator()(const UnityRenderingExtBeforeDrawCallParams& k) const;
+    };
+
 protected:
-    std::unordered_map<UnityRenderingExtBeforeDrawCallParams, std::vector<DrawcallQuery>> _timers[MAX_QUERY_SETS];
+    std::unordered_map<UnityRenderingExtBeforeDrawCallParams, std::vector<DrawcallQuery>, UnityDrawCallParamsHasher> _timers[MAX_QUERY_SETS];
     std::vector<DrawcallQuery> _timerPool;
+
+    TimerType _disjointQueries[MAX_QUERY_SETS];
+    DrawcallQuery _fullFrameQueries[MAX_QUERY_SETS];
+    DrawcallQuery _curQuery;
 };

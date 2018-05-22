@@ -23,6 +23,8 @@
 #include <cstdio>
 #include <string>
 
+#include <memory>
+
 // --------------------------------------------------------------------------
 // Include headers for the graphics APIs we support
 
@@ -45,14 +47,12 @@ static IUnityGraphics* s_Graphics = NULL;
 static UnityGfxRenderer s_DeviceType = kUnityGfxRendererNull;
 static void InitRenderTiming();
 
-static IDrawcallTimer* s_drawcallTimer;
+static std::unique_ptr<IDrawcallTimer> s_drawcallTimer;
 
 static const char * GfxRendererToString(UnityGfxRenderer deviceType);
 
 // --------------------------------------------------------------------------
 // GraphicsDeviceEvent
-
-#if SUPPORT_OPENGL_UNIFIED
 
 static void InitializeGfxApi(UnityGfxDeviceEventType eventType) {
   if (eventType == kUnityGfxDeviceEventInitialize) {
@@ -68,22 +68,20 @@ static void InitializeGfxApi(UnityGfxDeviceEventType eventType) {
       ::printf("DirectX 11 device\n");
 
       // Load DirectX 11
-      s_drawcallTimer = new DX11DrawcallTimer(s_UnityInterfaces->Get<IUnityGraphicsD3D11>());
+      s_drawcallTimer = std::make_unique<DX11DrawcallTimer>(s_UnityInterfaces->Get<IUnityGraphicsD3D11>());
     }
     #endif
   }
   else if (eventType == kUnityGfxDeviceEventShutdown) {
+    s_drawcallTimer.release();
   }
 }
-#endif // SUPPORT_OPENGL_UNIFIED
 
 static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
-  UnityGfxRenderer currentDeviceType = s_DeviceType;
 
   switch (eventType) {
   case kUnityGfxDeviceEventInitialize: {
       s_DeviceType = s_Graphics->GetRenderer();
-      currentDeviceType = s_DeviceType;
       break;
     }
 
@@ -101,14 +99,7 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
     }
   };
 
-  #if SUPPORT_OPENGL_UNIFIED
-  if (currentDeviceType == kUnityGfxRendererOpenGLES20 ||
-    currentDeviceType == kUnityGfxRendererOpenGLES30 ||
-    currentDeviceType == kUnityGfxRendererOpenGLCore) {
-    InitializeGfxApi(eventType);
-    InitRenderTiming();
-  }
-  #endif
+  InitializeGfxApi(eventType);
 }
 
 // --------------------------------------------------------------------------
@@ -119,7 +110,7 @@ extern "C" void  UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUni
   s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
   s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
 
-  // Run OnGraphicsDeviceEvent(initialize) manually on plugin load
+  // Run OnGraphicsDeviceEvent(initialize) manually on plugin load - the plugin might have been loaded after the graphics device was initialized
   OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
 }
 
@@ -131,10 +122,12 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEven
     switch(event) {
         case kUnityRenderingExtEventBeforeDrawCall:
             // Start rendering time query
+            s_drawcallTimer->Start(reinterpret_cast<UnityRenderingExtBeforeDrawCallParams*>(data));
             break;
         
         case kUnityRenderingExtEventAfterDrawCall:
             // End the timing query and save it somewhere
+            s_drawcallTimer->End();
             break;
     }
 }
