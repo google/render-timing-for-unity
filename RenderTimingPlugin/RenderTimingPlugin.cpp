@@ -40,8 +40,12 @@
 #  endif
 #endif
 
+#if SUPPORT_D3D9
+#include "Timers/DX9DrawcallTimer.h"
+#endif
+
 #if SUPPORT_D3D11 
-#include "DX11DrawcallTimer.h"
+#include "Timers/DX11DrawcallTimer.h"
 #endif
 
 static IUnityInterfaces* s_UnityInterfaces = NULL;
@@ -61,6 +65,12 @@ static DebugFuncPtr Debug = simple_print;
 // GraphicsDeviceEvent
 
 static void CreateProfilerForCurrentGfxApi() {
+
+  if (s_UnityInterfaces == nullptr) {
+    Debug("Unity interfaces is null!");
+    return;
+  }
+
   switch (s_DeviceType) {
   case kUnityGfxRendererOpenGLES20: {
       Debug("OpenGLES 2.0 device\n");
@@ -71,6 +81,16 @@ static void CreateProfilerForCurrentGfxApi() {
       Debug("OpenGLES 3.0 device\n");
       break;
     }
+
+  #if SUPPORT_D3D9
+  case kUnityGfxRendererD3D9: {
+      Debug("DirectX 9 device");
+
+      IUnityGraphicsD3D9* d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
+      s_DrawcallTimer = new DX9DrawcallTimer(d3d9Interface, Debug);
+      break;
+    }
+  #endif
 
   #if SUPPORT_D3D11
   case kUnityGfxRendererD3D11: {

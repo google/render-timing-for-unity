@@ -1,10 +1,12 @@
+#pragma once
+
 #include <cstdint>
 
 #include <unordered_map>
 #include <vector> 
 
-#include "Unity/IUnityRenderingExtensions.h"
-#include "RenderTimingPlugin.h"
+#include "../Unity/IUnityRenderingExtensions.h"
+#include "../RenderTimingPlugin.h"
 
 #define MAX_QUERY_SETS 2
 

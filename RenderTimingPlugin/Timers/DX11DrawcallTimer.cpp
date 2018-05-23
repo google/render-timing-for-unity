@@ -1,5 +1,5 @@
 #include "DX11DrawcallTimer.h"
-
+#if SUPPORT_D3D11
 #include <sstream>
 #include <iostream>
 
@@ -157,11 +157,6 @@ void DX11DrawcallTimer::ResolveQueries()
 
                 drawcallTime = endTime - startTime;
                 shaderTime += drawcallTime;
-                ss.str(std::string());
-                if (_frameCounter % 30 == 0 && drawcallTime > 0) {
-                    ss << "startTime: " << startTime << " endTime: " << endTime << " drawcallTime: " << drawcallTime;
-                    Debug(ss.str().c_str());
-                }
             }
 
             _timerPool.push_back(timer);
@@ -191,3 +186,4 @@ void DX11DrawcallTimer::ResolveQueries()
     // Erase the data so there's no garbage for next time 
     _timers[_curFrame].clear();
 }
+#endif

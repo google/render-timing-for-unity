@@ -21,12 +21,11 @@ set(CMAKE_CONFIGURATION_TYPES Debug)
 
 set(COMMON_SOURCE 
     RenderTimingPlugin.h RenderTimingPlugin.cpp
-    IDrawcallTimer.h IDrawcallTimer.cpp)
+    Timers/IDrawcallTimer.h Timers/IDrawcallTimer.cpp
+    Timers/DX9DrawcallTimer.h Timers/DX9DrawcallTimer.cpp
+    Timers/DX11DrawcallTimer.h Timers/DX11DrawcallTimer.cpp)
 
-set(D3D11_SOURCE 
-    DX11DrawcallTimer.h DX11DrawcallTimer.cpp)
-
-add_library(RenderTimingPlugin SHARED ${COMMON_SOURCE} ${D3D11_SOURCE})
+add_library(RenderTimingPlugin SHARED ${COMMON_SOURCE})
 
 message(sizeof void p: ${CMAKE_SIZEOF_VOID_P})
 
