@@ -27,6 +27,8 @@
 #include <sstream>
 #include <iostream>
 
+#include <algorithm>
+
 // --------------------------------------------------------------------------
 // Include headers for the graphics APIs we support
 
@@ -52,7 +54,7 @@ static IUnityInterfaces* s_UnityInterfaces = NULL;
 static IUnityGraphics* s_Graphics = NULL;
 static UnityGfxRenderer s_DeviceType = kUnityGfxRendererNull;
 
-static IDrawcallTimer* s_DrawcallTimer = nullptr;
+static std::unique_ptr<IDrawcallTimer> s_DrawcallTimer;
 
 static const char * GfxRendererToString(UnityGfxRenderer deviceType);
 
@@ -87,7 +89,7 @@ static void CreateProfilerForCurrentGfxApi() {
       Debug("DirectX 9 device");
 
       IUnityGraphicsD3D9* d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
-      s_DrawcallTimer = new DX9DrawcallTimer(d3d9Interface, Debug);
+      s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
       break;
     }
   #endif
@@ -103,7 +105,7 @@ static void CreateProfilerForCurrentGfxApi() {
 
       // Load DirectX 11
       IUnityGraphicsD3D11* d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-      s_DrawcallTimer = new DX11DrawcallTimer(d3d11Interface, Debug);
+      s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(d3d11Interface, Debug);
       break;
     }
   #endif
@@ -116,6 +118,66 @@ static void CreateProfilerForCurrentGfxApi() {
   }
 }
 
+// --------------------------------------------------------------------------
+// C# Interface
+
+extern "C" typedef struct {
+    const char* VertexName;
+    const char* GeometryName;
+    const char* HullName;
+    const char* DomainName;
+    const char* FragmentName;
+
+    double Time;
+} ShaderTime;
+
+static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
+    s_DrawcallTimer->AdvanceFrame();
+}
+
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
+    return OnFrameEnd;
+}
+
+extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetMostRecentShaderTimings(ShaderTime** times, __int32* size) {
+    static std::vector<ShaderTime> timingsList;
+
+    if (!s_DrawcallTimer) {
+        return false;
+    }
+
+    const auto& timings = s_DrawcallTimer->GetMostRecentShaderExecutionTimes();
+    timingsList.clear();
+    timingsList.reserve(timings.size());
+    for (const auto& timing : timings) {
+        ShaderTime time;
+        time.VertexName = timing.first.Vertex.c_str();
+        time.GeometryName = timing.first.Geometry.c_str();
+        time.HullName = timing.first.Hull.c_str();
+        time.DomainName = timing.first.Domain.c_str();
+        time.FragmentName = timing.first.Pixel.c_str();
+
+        time.Time = timing.second;
+
+        timingsList.push_back(time);
+    }
+
+    std::sort(timingsList.begin(), timingsList.end(), [](const ShaderTime& timing1, const ShaderTime& timing2) { return timing1.Time > timing2.Time; });
+
+    *times = &timingsList.front();
+    *size = static_cast<__int32>(timingsList.size());
+
+    return true;
+}
+
+// Register logging function which takes a string
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDebugFunction(DebugFuncPtr fp) {
+    // Debug = fp;
+    // if (s_DrawcallTimer) {
+    //     s_DrawcallTimer->SetDebugFunction(Debug);
+    // }
+}
+
 static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
   switch (eventType) {
   case kUnityGfxDeviceEventInitialize: {
@@ -126,7 +188,7 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
   
   case kUnityGfxDeviceEventShutdown: {
       s_DeviceType = kUnityGfxRendererNull;
-      delete s_DrawcallTimer;
+      s_DrawcallTimer.release();
       break;
     }
   
@@ -179,24 +241,8 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEven
   }
 }
 
-static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-  s_DrawcallTimer->AdvanceFrame();
-}
-
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
-    return OnFrameEnd;
-}
-
 // --------------------------------------------------------------------------
 // Utilities
-
-// Register logging function which takes a string
-extern "C" void UNITY_INTERFACE_EXPORT SetDebugFunction(DebugFuncPtr fp) {
-  // Debug = fp;
-  // if (s_DrawcallTimer) {
-  //     s_DrawcallTimer->SetDebugFunction(Debug);
-  // }
-}
 
 static void simple_print(const char* c) {
     std::cout << c << std::endl;

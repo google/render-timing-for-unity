@@ -20,7 +20,7 @@ uint8_t IDrawcallTimer::GetNextFrameIndex()
     return (_frameCounter + 1) % MAX_QUERY_SETS;
 }
 
-const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetShaderExecutionTimes() const {
+const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetMostRecentShaderExecutionTimes() const {
     return _shaderTimes;
 }
 
