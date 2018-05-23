@@ -20,21 +20,43 @@ uint8_t IDrawcallTimer::GetNextFrameIndex()
     return (_frameCounter + 1) % MAX_QUERY_SETS;
 }
 
-std::size_t UnityDrawCallParamsHasher::operator()(const UnityRenderingExtBeforeDrawCallParams & k) const
-{
-    return reinterpret_cast<intptr_t>(k.vertexShader)
-        ^ reinterpret_cast<intptr_t>(k.fragmentShader)
-        ^ reinterpret_cast<intptr_t>(k.geometryShader)
-        ^ reinterpret_cast<intptr_t>(k.hullShader)
-        ^ reinterpret_cast<intptr_t>(k.domainShader)
-        ^ k.eyeIndex;
+const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetShaderExecutionTimes() const {
+    return _shaderTimes;
 }
 
 bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {
-    auto hasher = UnityDrawCallParamsHasher();
-    return hasher(lhs) == hasher(rhs);
+    return std::hash<UnityRenderingExtBeforeDrawCallParams>()(lhs) == std::hash<UnityRenderingExtBeforeDrawCallParams>()(rhs);
 }
 
 bool operator!=(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {
     return !(lhs == rhs);
+}
+
+bool operator==(const ShaderNames& lhs, const ShaderNames rhs) {
+    return std::hash<ShaderNames>()(lhs) == std::hash<ShaderNames>()(rhs);
+}
+
+bool operator!=(const ShaderNames& lhs, const ShaderNames rhs) {
+    return !(lhs == rhs);
+}
+
+namespace std {
+    std::size_t hash<UnityRenderingExtBeforeDrawCallParams>::operator()(const UnityRenderingExtBeforeDrawCallParams & k) const
+    {
+        return reinterpret_cast<intptr_t>(k.vertexShader)
+            ^ (reinterpret_cast<intptr_t>(k.fragmentShader) << 1)
+            ^ (reinterpret_cast<intptr_t>(k.geometryShader) << 2)
+            ^ (reinterpret_cast<intptr_t>(k.hullShader) << 3)
+            ^ (reinterpret_cast<intptr_t>(k.domainShader) << 4)
+            ^ (k.eyeIndex << 5);
+    }
+
+    std::size_t hash<ShaderNames>::operator()(const ShaderNames & k) const {
+
+        return std::hash<std::string>()(k.Vertex)
+            ^ std::hash<std::string>()(k.Geometry)
+            ^ std::hash<std::string>()(k.Domain)
+            ^ std::hash<std::string>()(k.Hull)
+            ^ std::hash<std::string>()(k.Pixel);
+    }
 }

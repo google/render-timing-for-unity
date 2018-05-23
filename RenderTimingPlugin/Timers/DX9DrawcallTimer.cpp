@@ -142,7 +142,7 @@ void DX9DrawcallTimer::ResolveQueries()
         }
     }
 
-    std::unordered_map<UnityRenderingExtBeforeDrawCallParams, double, UnityDrawCallParamsHasher> shaderTimings;
+    std::unordered_map<UnityRenderingExtBeforeDrawCallParams, double> shaderTimings;
 
     // Collect raw GPU time for each shader
     for (const auto& shaderTimers : _timers[_curFrame]) {

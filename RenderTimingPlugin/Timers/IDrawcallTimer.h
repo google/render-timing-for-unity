@@ -10,6 +10,26 @@
 
 #define MAX_QUERY_SETS 2
 
+struct ShaderNames {
+    std::string Vertex;
+    std::string Geometry;
+    std::string Hull;
+    std::string Domain;
+    std::string Pixel;
+};
+
+namespace std {
+    template <>
+    struct hash<ShaderNames> {
+        std::size_t operator()(const ShaderNames& k) const;
+    };
+
+    template <>
+    struct hash<UnityRenderingExtBeforeDrawCallParams> {
+        std::size_t operator()(const UnityRenderingExtBeforeDrawCallParams& k) const;
+    };
+}
+
 class IDrawcallTimer {
 public:
     /*!
@@ -50,6 +70,11 @@ public:
      */
     virtual void ResolveQueries() = 0;
 
+    /*!
+     * \brief Retrieve the timings for the most recently timed frame
+     */
+    const std::unordered_map<ShaderNames, double>& GetMostRecentShaderExecutionTimes() const;
+
     void SetDebugFunction(DebugFuncPtr func);
 
     uint8_t GetNextFrameIndex();
@@ -61,10 +86,8 @@ protected:
     uint64_t _frameCounter = 0;
 
     DebugFuncPtr Debug;
-};
 
-struct UnityDrawCallParamsHasher {
-    std::size_t operator()(const UnityRenderingExtBeforeDrawCallParams& k) const;
+    std::unordered_map<ShaderNames, double> _shaderTimes;
 };
 
 /*!
@@ -83,7 +106,7 @@ public:
     }
 
 protected:
-    std::unordered_map<UnityRenderingExtBeforeDrawCallParams, std::vector<DrawcallQuery>, UnityDrawCallParamsHasher> _timers[MAX_QUERY_SETS];
+    std::unordered_map<UnityRenderingExtBeforeDrawCallParams, std::vector<DrawcallQuery>> _timers[MAX_QUERY_SETS];
     std::vector<DrawcallQuery> _timerPool;
 
     TimerType _disjointQueries[MAX_QUERY_SETS];
@@ -94,3 +117,7 @@ protected:
 bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs);
 
 bool operator!=(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs);
+
+bool operator==(const ShaderNames& lhs, const ShaderNames rhs);
+
+bool operator!=(const ShaderNames& lhs, const ShaderNames rhs);
