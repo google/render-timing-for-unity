@@ -147,6 +147,7 @@ void DX11DrawcallTimer::ResolveQueries()
         }
     }
 
+    _shaderTimes.clear();
     // Collect raw GPU time for each shader
     for (const auto& shaderTimers : _timers[_curFrame]) {
 

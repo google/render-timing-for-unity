@@ -54,9 +54,9 @@ namespace std {
     std::size_t hash<ShaderNames>::operator()(const ShaderNames & k) const {
 
         return std::hash<std::string>()(k.Vertex)
-            ^ std::hash<std::string>()(k.Geometry)
-            ^ std::hash<std::string>()(k.Domain)
-            ^ std::hash<std::string>()(k.Hull)
-            ^ std::hash<std::string>()(k.Pixel);
+            ^ (std::hash<std::string>()(k.Geometry) << 1)
+            ^ (std::hash<std::string>()(k.Domain) << 2)
+            ^ (std::hash<std::string>()(k.Hull) << 3)
+            ^ (std::hash<std::string>()(k.Pixel) << 4);
     }
 }

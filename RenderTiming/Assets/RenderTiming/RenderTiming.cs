@@ -32,7 +32,7 @@ public class RenderTiming : MonoBehaviour {
   public struct ShaderTiming
   {
     public string VertexName;
-    public string GeometyName;
+    public string GeometryName;
     public string HullName;
     public string DomainName;
     public string FragmentName;
@@ -41,8 +41,39 @@ public class RenderTiming : MonoBehaviour {
 
     public override string ToString()
     {
-      return string.Format("Shader(Vertex={0}, Geometry={1}, Hull={2}, Domain={3}, Fragment={4}) took {5}ms this frame",
-        VertexName, GeometyName, HullName, DomainName, FragmentName, Time);
+      StringBuilder sb = new StringBuilder();
+      sb.Append("Shader(");
+      if (!VertexName.IsNullOrEmpty())
+      {
+        sb.Append("Vertex=");
+        sb.Append(VertexName);
+      }
+      if (!GeometryName.IsNullOrEmpty())
+      {
+        sb.Append(", Geometry=");
+        sb.Append(GeometryName);
+      }
+      if (!HullName.IsNullOrEmpty())
+      {
+        sb.Append(", Hull=");
+        sb.Append(HullName);
+      }
+      if (!DomainName.IsNullOrEmpty())
+      {
+        sb.Append(", Domain=");
+        sb.Append(DomainName);
+      }
+      if (!FragmentName.IsNullOrEmpty())
+      {
+        sb.Append(", Fragment=");
+        sb.Append(FragmentName);
+      }
+
+      sb.Append(") took ");
+      sb.Append(Time);
+      sb.Append("ms this frame");
+
+      return sb.ToString();
     }
   }
   
