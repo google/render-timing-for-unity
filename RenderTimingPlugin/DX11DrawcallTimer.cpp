@@ -3,28 +3,29 @@
 #include <sstream>
 #include <iostream>
 
+#include <comdef.h>
+
 DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d) {
     _d3dDevice = d3d->GetDevice();
     if (_d3dDevice == nullptr) {
-        std::cout << "D3D device is null!" << std::endl;
+        Debug("D3D device is null!\n");
         return;
     }
     _d3dDevice->GetImmediateContext(&_d3dContext);
-    ::printf("Acquired an immediate context\n");
+    Debug("Acquired an immediate context\n");
 
     if (_d3dContext == nullptr) {
-        std::cout << "D3D context is null!" << std::endl;
+        Debug("D3D context is null!");
         return;
     }
 
     D3D11_QUERY_DESC disjointQueryDesc;
     disjointQueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
-    std::cout << "About to create " << MAX_QUERY_SETS << " disjoint queries" << std::endl;
     for (int i = 0; i < MAX_QUERY_SETS; i++) {
         _d3dDevice->CreateQuery(&disjointQueryDesc, &_disjointQueries[i]);
     }
 
-    std::cout << "DX11DrawcallTimer initialized" << std::endl;
+    Debug("DX11DrawcallTimer initialized\n");
 }
 
 DX11DrawcallTimer::~DX11DrawcallTimer()
@@ -33,17 +34,27 @@ DX11DrawcallTimer::~DX11DrawcallTimer()
 }
 
 void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) {
-    std::cout << "Starting a drawcall profile" << std::endl;
     DrawcallQuery drawcallQuery;
 
     if (_timerPool.empty()) {
-        std::cout << "Creating a new query object because the pool is empty";
         ID3D11Query* startQuery;
         D3D11_QUERY_DESC startQueryDesc;
         startQueryDesc.Query = D3D11_QUERY_TIMESTAMP;
+        startQueryDesc.MiscFlags = 0;
         auto queryResult = _d3dDevice->CreateQuery(&startQueryDesc, &startQuery);
         if (queryResult != S_OK) {
-            std::cout << "Could not create a query object" << std::endl;
+            Debug("Could not create a query object: ");
+            switch (queryResult) {
+            case E_OUTOFMEMORY:
+                Debug("Out of memory\n");
+                break;
+
+            default:
+                _com_error err(queryResult);
+                Debug(err.ErrorMessage());
+                Debug("\n");
+            }           
+
             return;
         }
 
@@ -52,9 +63,20 @@ void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPar
         ID3D11Query* endQuery;
         D3D11_QUERY_DESC endQueryDecs;
         endQueryDecs.Query = D3D11_QUERY_TIMESTAMP;
+        endQueryDecs.MiscFlags = 0;
         queryResult = _d3dDevice->CreateQuery(&endQueryDecs, &endQuery);
         if (queryResult != S_OK) {
-            std::cout << "Could not create a query object" << std::endl;
+            Debug("Could not create a query object: ");
+            switch (queryResult) {
+            case E_OUTOFMEMORY:
+                Debug("Out of memory");
+                break;
+
+            default:
+                _com_error err(queryResult);
+                Debug(err.ErrorMessage());
+            }
+
             return;
         }
 
@@ -71,7 +93,6 @@ void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPar
 }
 
 void DX11DrawcallTimer::End() {
-    std::cout << "Ending a drawcall" << std::endl;
     _d3dContext->End(_curQuery.EndQuery);
 }
 
@@ -119,6 +140,8 @@ void DX11DrawcallTimer::ResolveQueries()
             _d3dContext->GetData(timer.EndQuery, &endTime, sizeof(UINT64), 0);
 
             shaderTime += endTime - startTime;
+
+            _timerPool.push_back(timer);
         }
 
         const auto& shader = shaderTimers.first;

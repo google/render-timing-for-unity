@@ -84,7 +84,9 @@ static void InitializeGfxApi() {
   #endif
 
   default: {
-      std::cout << "Graphics api " << GfxRendererToString(s_DeviceType) << " not supported" << std::endl;
+      Debug("Graphics api ");
+      Debug(GfxRendererToString(s_DeviceType));
+      Debug(" not supported\n");
     }
   }
 }
@@ -136,25 +138,20 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEvent(UnityRenderingExtEventType event, void* data) {
   switch(event) {
   case kUnityRenderingExtEventBeforeDrawCall: {
-      std::cout << "Received pre-drawcall event" << std::endl;
       // Start rendering time query
       s_DrawcallTimer->Start(reinterpret_cast<UnityRenderingExtBeforeDrawCallParams*>(data));
       break;
     }
     
   case kUnityRenderingExtEventAfterDrawCall: {
-      std::cout << "Received a post-drawcall event" << std::endl;
       // End the timing query and save it somewhere
       s_DrawcallTimer->End();
       break;
     }
   }
-
-  std::cout << "Received unsupported rendering extension event" << std::endl;
 }
 
 static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-  std::cout << "OnFrameEnd" << std::endl;
   s_DrawcallTimer->AdvanceFrame();
 }
 
@@ -167,10 +164,10 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnF
 
 // Register logging function which takes a string
 extern "C" void UNITY_INTERFACE_EXPORT SetDebugFunction(DebugFuncPtr fp) {
-  Debug = fp;
-  if (s_DrawcallTimer) {
-      s_DrawcallTimer->SetDebugFunction(Debug);
-  }
+  //Debug = fp;
+  //if (s_DrawcallTimer) {
+  //    s_DrawcallTimer->SetDebugFunction(Debug);
+  //}
 }
 
 static void simple_print(const char* c) {
