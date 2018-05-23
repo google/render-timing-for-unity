@@ -97,10 +97,13 @@ void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPara
     drawcallQuery.StartQuery->Issue(D3DISSUE_END);
     _curQuery = drawcallQuery;
     _timers[_curFrame][*drawcallParams].push_back(drawcallQuery);
+
+    Debug("Began a drawcall timer");
 }
 
 void DX9DrawcallTimer::End() {
     _curQuery.EndQuery->Issue(D3DISSUE_END);
+    Debug("Ended a drawcall timer");
 }
 
 void DX9DrawcallTimer::ResolveQueries()
@@ -113,8 +116,6 @@ void DX9DrawcallTimer::ResolveQueries()
     curFullFrameQuery.EndQuery->Issue(D3DISSUE_END);
     _disjointQueries[_curFrame]->Issue(D3DISSUE_END);
     _frequencyQueries[_curFrame]->Issue(D3DISSUE_END);
-    _disjointQueries[GetNextFrameIndex()]->Issue(D3DISSUE_BEGIN);
-    _fullFrameQueries[GetNextFrameIndex()].StartQuery->Issue(D3DISSUE_END);
 
     bool isDisjoint = false;
     // Wait for data to become available. This will hurt the frame time a little but it's fine
@@ -129,7 +130,7 @@ void DX9DrawcallTimer::ResolveQueries()
     _frequencyQueries[_curFrame]->GetData(&gpuFrequency, sizeof(uint64_t), D3DGETDATA_FLUSH);
 
     if (record) {
-        uint64_t frameStart, frameEnd;
+        uint64_t frameStart = 0, frameEnd = 0;
         curFullFrameQuery.StartQuery->GetData(&frameStart, sizeof(uint64_t), 0);
         curFullFrameQuery.EndQuery->GetData(&frameEnd, sizeof(uint64_t), 0);
 
@@ -183,5 +184,8 @@ void DX9DrawcallTimer::ResolveQueries()
 
     // Erase the data so there's no garbage for next time 
     _timers[_curFrame].clear();
+
+    _disjointQueries[GetNextFrameIndex()]->Issue(D3DISSUE_BEGIN);
+    _fullFrameQueries[GetNextFrameIndex()].StartQuery->Issue(D3DISSUE_END);
 }
 #endif
