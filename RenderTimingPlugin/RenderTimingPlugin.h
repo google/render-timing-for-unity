@@ -61,3 +61,5 @@
   #define SUPPORT_OPENGL_UNIFIED 1
   #define SUPPORT_OPENGL_CORE 1
 #endif
+
+typedef void(*DebugFuncPtr)(const char*);

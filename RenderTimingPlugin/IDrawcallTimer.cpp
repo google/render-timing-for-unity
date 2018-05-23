@@ -1,10 +1,18 @@
 #include "IDrawcallTimer.h"
 
+#include <iostream>
+
 void IDrawcallTimer::AdvanceFrame() {
     ResolveQueries();
 
     _frameCounter++;
     _curFrame = _frameCounter % MAX_QUERY_SETS;
+}
+
+void IDrawcallTimer::SetDebugFunction(DebugFuncPtr func)
+{
+    std::cout << "Setting debug function" << std::endl;
+    Debug = func;
 }
 
 uint8_t IDrawcallTimer::GetNextFrameIndex()
@@ -16,12 +24,21 @@ uint8_t IDrawcallTimer::GetNextFrameIndex()
     return _curFrame + 1;
 }
 
-template <typename TimerType>
-inline std::size_t DrawcallTimer<TimerType>::UnityDrawcallParamsHasher::operator()(const UnityRenderingExtBeforeDrawCallParams& k) const {
-    return std::hash<void*>(k.vertexShader)
-        ^ std::hash<void*>(k.fragmentShader)
-        ^ std::hash<void*>(k.geometryShader)
-        ^ std::hash<void*>(k.hullShader)
-        ^ std::hash<void*>(k.domainShader)
-        ^ std::hash<int>(k.eyeIndex);
+std::size_t UnityDrawCallParamsHasher::operator()(const UnityRenderingExtBeforeDrawCallParams & k) const
+{
+    return reinterpret_cast<intptr_t>(k.vertexShader)
+        ^ reinterpret_cast<intptr_t>(k.fragmentShader)
+        ^ reinterpret_cast<intptr_t>(k.geometryShader)
+        ^ reinterpret_cast<intptr_t>(k.hullShader)
+        ^ reinterpret_cast<intptr_t>(k.domainShader)
+        ^ k.eyeIndex;
+}
+
+bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {
+    auto hasher = UnityDrawCallParamsHasher();
+    return hasher(lhs) == hasher(rhs);
+}
+
+bool operator!=(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {
+    return !(lhs == rhs);
 }

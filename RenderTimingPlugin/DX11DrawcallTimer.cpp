@@ -1,14 +1,30 @@
 #include "DX11DrawcallTimer.h"
 
+#include <sstream>
+#include <iostream>
+
 DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d) {
     _d3dDevice = d3d->GetDevice();
+    if (_d3dDevice == nullptr) {
+        std::cout << "D3D device is null!" << std::endl;
+        return;
+    }
     _d3dDevice->GetImmediateContext(&_d3dContext);
+    ::printf("Acquired an immediate context\n");
+
+    if (_d3dContext == nullptr) {
+        std::cout << "D3D context is null!" << std::endl;
+        return;
+    }
 
     D3D11_QUERY_DESC disjointQueryDesc;
     disjointQueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
+    std::cout << "About to create " << MAX_QUERY_SETS << " disjoint queries" << std::endl;
     for (int i = 0; i < MAX_QUERY_SETS; i++) {
         _d3dDevice->CreateQuery(&disjointQueryDesc, &_disjointQueries[i]);
     }
+
+    std::cout << "DX11DrawcallTimer initialized" << std::endl;
 }
 
 DX11DrawcallTimer::~DX11DrawcallTimer()
@@ -17,15 +33,17 @@ DX11DrawcallTimer::~DX11DrawcallTimer()
 }
 
 void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) {
+    std::cout << "Starting a drawcall profile" << std::endl;
     DrawcallQuery drawcallQuery;
 
     if (_timerPool.empty()) {
+        std::cout << "Creating a new query object because the pool is empty";
         ID3D11Query* startQuery;
         D3D11_QUERY_DESC startQueryDesc;
         startQueryDesc.Query = D3D11_QUERY_TIMESTAMP;
         auto queryResult = _d3dDevice->CreateQuery(&startQueryDesc, &startQuery);
         if (queryResult != S_OK) {
-            ::printf("Could not create a query object\n");
+            std::cout << "Could not create a query object" << std::endl;
             return;
         }
 
@@ -36,7 +54,7 @@ void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPar
         endQueryDecs.Query = D3D11_QUERY_TIMESTAMP;
         queryResult = _d3dDevice->CreateQuery(&endQueryDecs, &endQuery);
         if (queryResult != S_OK) {
-            ::printf("Could not create a query object\n");
+            std::cout << "Could not create a query object" << std::endl;
             return;
         }
 
@@ -49,10 +67,11 @@ void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPar
 
     _d3dContext->End(drawcallQuery.StartQuery);
     _curQuery = drawcallQuery;
-    _timers[_curFrame][drawcallParams].push_back(drawcallQuery);
+    _timers[_curFrame][*drawcallParams].push_back(drawcallQuery);
 }
 
 void DX11DrawcallTimer::End() {
+    std::cout << "Ending a drawcall" << std::endl;
     _d3dContext->End(_curQuery.EndQuery);
 }
 
@@ -81,15 +100,19 @@ void DX11DrawcallTimer::ResolveQueries()
     _d3dContext->GetData(curFullFrameQuery.EndQuery, &frameEnd, sizeof(uint64_t), 0);
 
     auto fullFrameTime = double(frameEnd - frameStart) / double(disjointData.Frequency);
+
+    std::stringstream ss;
+
     if (_frameCounter % 30 == 0) {
-        ::printf("The frame took %d ms total\n", fullFrameTime);
+        ss << "The frame took " << fullFrameTime << "ms total\n";
+        Debug(ss.str().data());
     }
 
     std::unordered_map<UnityRenderingExtBeforeDrawCallParams, double, UnityDrawCallParamsHasher> shaderTimings;
 
     // Collect raw GPU time for each shader
     for (const auto& shaderTimers : _timers[_curFrame]) {
-        uint64_t shaderTime;
+        uint64_t shaderTime = 0;
         for (const auto& timer : shaderTimers.second) {
             UINT64 startTime, endTime;
             _d3dContext->GetData(timer.StartQuery, &startTime, sizeof(UINT64), 0);
@@ -103,9 +126,11 @@ void DX11DrawcallTimer::ResolveQueries()
         shaderTimings[shader] = double(shaderTime) / double(disjointData.Frequency);
 
         if (_frameCounter % 30 == 0) {
-            ::printf("Shader vertex=%02x geometry=%02x hull=%02x domain=%02x fragment=%02x took %d ms\n",
-                shader.vertexShader, shader.geometryShader, shader.hullShader, shader.domainShader,
-                shader.fragmentShader, shaderTime);
+            ss.clear();
+            ss << "Shader vertex=" << shader.vertexShader << " geometry=" << shader.geometryShader << " hull="
+                << shader.hullShader << " domain=" << shader.domainShader << " fragment=" << shader.fragmentShader
+                << " took " << shaderTimings[shader] << "ms\n";
+            Debug(ss.str().data());
         }
     }
 

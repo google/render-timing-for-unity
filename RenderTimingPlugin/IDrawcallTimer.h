@@ -4,6 +4,7 @@
 #include <vector> 
 
 #include "Unity/IUnityRenderingExtensions.h"
+#include "RenderTimingPlugin.h"
 
 #define MAX_QUERY_SETS 2
 
@@ -47,6 +48,8 @@ public:
      */
     virtual void ResolveQueries() = 0;
 
+    void SetDebugFunction(DebugFuncPtr func);
+
     uint8_t GetNextFrameIndex();
     
 protected:
@@ -54,6 +57,12 @@ protected:
 
     // If this thing overflows then you should probably close your application
     uint64_t _frameCounter = 0;
+
+    DebugFuncPtr Debug;
+};
+
+struct UnityDrawCallParamsHasher {
+    std::size_t operator()(const UnityRenderingExtBeforeDrawCallParams& k) const;
 };
 
 /*!
@@ -67,10 +76,6 @@ public:
         TimerType EndQuery;
     };
 
-    struct UnityDrawCallParamsHasher {
-        std::size_t operator()(const UnityRenderingExtBeforeDrawCallParams& k) const;
-    };
-
 protected:
     std::unordered_map<UnityRenderingExtBeforeDrawCallParams, std::vector<DrawcallQuery>, UnityDrawCallParamsHasher> _timers[MAX_QUERY_SETS];
     std::vector<DrawcallQuery> _timerPool;
@@ -79,3 +84,7 @@ protected:
     DrawcallQuery _fullFrameQueries[MAX_QUERY_SETS];
     DrawcallQuery _curQuery;
 };
+
+bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs);
+
+bool operator!=(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs);
