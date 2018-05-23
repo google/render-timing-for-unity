@@ -17,11 +17,7 @@ void IDrawcallTimer::SetDebugFunction(DebugFuncPtr func)
 
 uint8_t IDrawcallTimer::GetNextFrameIndex()
 {
-    if (_curFrame + 1 >= MAX_QUERY_SETS) {
-        return 0;
-    }
-    
-    return _curFrame + 1;
+    return (_frameCounter + 1) % MAX_QUERY_SETS;
 }
 
 std::size_t UnityDrawCallParamsHasher::operator()(const UnityRenderingExtBeforeDrawCallParams & k) const

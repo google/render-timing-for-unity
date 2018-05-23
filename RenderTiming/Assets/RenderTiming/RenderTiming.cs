@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Runtime.InteropServices;
 using AOT;
 using UnityEngine;
@@ -63,14 +64,22 @@ public class RenderTiming : MonoBehaviour {
     isInitialized = true;
   }
 
-  private void OnPostRender()
-  {
-    //GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
-  }
-
   void OnEnable() {
     if (!isInitialized) {
       Init();
     }
+
+    StartCoroutine(UpdateOnFrameEnd());
+  }
+
+  private IEnumerator UpdateOnFrameEnd()
+  {
+    while (true)
+    {
+      yield return new WaitForEndOfFrame();
+      
+      GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
+    }
+    // ReSharper disable once IteratorNeverReturns
   }
 }

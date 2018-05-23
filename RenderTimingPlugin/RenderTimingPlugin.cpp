@@ -81,14 +81,9 @@ static void CreateProfilerForCurrentGfxApi() {
           return;
       }
 
-      Debug("About to create the DX11 drawcall timer");
       // Load DirectX 11
       IUnityGraphicsD3D11* d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-      std::stringstream ss;
-      ss << "Acquired D3D11 interface " << d3d11Interface;
-      Debug(ss.str().c_str());
       s_DrawcallTimer = new DX11DrawcallTimer(d3d11Interface, Debug);
-      Debug("Created DX11 drawcall timer");
       break;
     }
   #endif
@@ -151,22 +146,21 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEven
     }
   switch(event) {
   case kUnityRenderingExtEventBeforeDrawCall: {
-      Debug("Starting drawcall profiling\n");
       // Start rendering time query
       s_DrawcallTimer->Start(reinterpret_cast<UnityRenderingExtBeforeDrawCallParams*>(data));
       break;
     }
     
-  // case kUnityRenderingExtEventAfterDrawCall: {
-  //     // End the timing query and save it somewhere
-  //     s_DrawcallTimer->End();
-  //     break;
-  //   }
+  case kUnityRenderingExtEventAfterDrawCall: {
+      // End the timing query and save it somewhere
+      s_DrawcallTimer->End();
+      break;
+    }
   }
 }
 
 static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-  //s_DrawcallTimer->AdvanceFrame();
+  s_DrawcallTimer->AdvanceFrame();
 }
 
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
