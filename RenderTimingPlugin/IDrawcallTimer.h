@@ -76,6 +76,10 @@ public:
         TimerType EndQuery;
     };
 
+    DrawcallTimer(DebugFuncPtr DebugFunc) {
+        SetDebugFunction(DebugFunc);
+    }
+
 protected:
     std::unordered_map<UnityRenderingExtBeforeDrawCallParams, std::vector<DrawcallQuery>, UnityDrawCallParamsHasher> _timers[MAX_QUERY_SETS];
     std::vector<DrawcallQuery> _timerPool;

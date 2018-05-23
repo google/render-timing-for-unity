@@ -5,8 +5,10 @@
 
 #include <comdef.h>
 
-DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d) {
+DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d, DebugFuncPtr debugFunc) : DrawcallTimer(debugFunc) {
+    Debug("Creating a DX11 drawcall timer");
     _d3dDevice = d3d->GetDevice();
+    Debug("Acquired D3D11 device");
     if (_d3dDevice == nullptr) {
         Debug("D3D device is null!\n");
         return;
@@ -23,6 +25,7 @@ DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d) {
     disjointQueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
     for (int i = 0; i < MAX_QUERY_SETS; i++) {
         _d3dDevice->CreateQuery(&disjointQueryDesc, &_disjointQueries[i]);
+        Debug("Created a query");
     }
 
     Debug("DX11DrawcallTimer initialized\n");
@@ -34,6 +37,7 @@ DX11DrawcallTimer::~DX11DrawcallTimer()
 }
 
 void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) {
+    Debug("Starting a profiling block\n");
     DrawcallQuery drawcallQuery;
 
     if (_timerPool.empty()) {
@@ -59,6 +63,7 @@ void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPar
         }
 
         drawcallQuery.StartQuery = startQuery;
+        Debug("Created start query\n");
 
         ID3D11Query* endQuery;
         D3D11_QUERY_DESC endQueryDecs;
@@ -81,15 +86,22 @@ void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPar
         }
 
         drawcallQuery.EndQuery = endQuery;
+        Debug("Created end query\n");
 
     } else {
         drawcallQuery = _timerPool.back();
         _timerPool.pop_back();
+        Debug("Acquited query from the pool\n");
     }
 
     _d3dContext->End(drawcallQuery.StartQuery);
+    Debug("Got time of the start query\n");
     _curQuery = drawcallQuery;
+    std::stringstream ss;
+    ss << "Saving the current query in frame " << _curFrame << " out of " << MAX_QUERY_SETS;
+    Debug(ss.str().c_str());
     _timers[_curFrame][*drawcallParams].push_back(drawcallQuery);
+    Debug("Save complete\n");
 }
 
 void DX11DrawcallTimer::End() {

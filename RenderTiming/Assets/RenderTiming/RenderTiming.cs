@@ -65,7 +65,7 @@ public class RenderTiming : MonoBehaviour {
 
   private void OnPostRender()
   {
-    GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
+    //GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
   }
 
   void OnEnable() {

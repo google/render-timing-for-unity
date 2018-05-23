@@ -5,7 +5,7 @@
 
 class DX11DrawcallTimer : public DrawcallTimer<ID3D11Query*> {
 public:
-    DX11DrawcallTimer(IUnityGraphicsD3D11* d3d);
+    DX11DrawcallTimer(IUnityGraphicsD3D11* d3d, DebugFuncPtr debugFunc);
     ~DX11DrawcallTimer();
 
     /*

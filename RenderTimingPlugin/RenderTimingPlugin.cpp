@@ -48,7 +48,7 @@ static IUnityInterfaces* s_UnityInterfaces = NULL;
 static IUnityGraphics* s_Graphics = NULL;
 static UnityGfxRenderer s_DeviceType = kUnityGfxRendererNull;
 
-static std::unique_ptr<IDrawcallTimer> s_DrawcallTimer;
+static IDrawcallTimer* s_DrawcallTimer = nullptr;
 
 static const char * GfxRendererToString(UnityGfxRenderer deviceType);
 
@@ -60,7 +60,7 @@ static DebugFuncPtr Debug = simple_print;
 // --------------------------------------------------------------------------
 // GraphicsDeviceEvent
 
-static void InitializeGfxApi() {
+static void CreateProfilerForCurrentGfxApi() {
   switch (s_DeviceType) {
   case kUnityGfxRendererOpenGLES20: {
       Debug("OpenGLES 2.0 device\n");
@@ -74,11 +74,21 @@ static void InitializeGfxApi() {
 
   #if SUPPORT_D3D11
   case kUnityGfxRendererD3D11: {
-      Debug("DirectX 11 device\n");
+      Debug("DirectX 11 device");
 
+      if (s_UnityInterfaces == nullptr) {
+          Debug("Unity interfaces is null!");
+          return;
+      }
+
+      Debug("About to create the DX11 drawcall timer");
       // Load DirectX 11
-      s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(s_UnityInterfaces->Get<IUnityGraphicsD3D11>());
-      s_DrawcallTimer->SetDebugFunction(Debug);
+      IUnityGraphicsD3D11* d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
+      std::stringstream ss;
+      ss << "Acquired D3D11 interface " << d3d11Interface;
+      Debug(ss.str().c_str());
+      s_DrawcallTimer = new DX11DrawcallTimer(d3d11Interface, Debug);
+      Debug("Created DX11 drawcall timer");
       break;
     }
   #endif
@@ -95,20 +105,20 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
   switch (eventType) {
   case kUnityGfxDeviceEventInitialize: {
       s_DeviceType = s_Graphics->GetRenderer();
-      InitializeGfxApi();
+      CreateProfilerForCurrentGfxApi();
       break;
     }
-
+  
   case kUnityGfxDeviceEventShutdown: {
       s_DeviceType = kUnityGfxRendererNull;
-      s_DrawcallTimer.release();
+      delete s_DrawcallTimer;
       break;
     }
-
+  
   case kUnityGfxDeviceEventBeforeReset: {
       break;
     }
-
+  
   case kUnityGfxDeviceEventAfterReset: {
       break;
     }
@@ -123,36 +133,40 @@ extern "C" void  UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUni
   s_UnityInterfaces = unityInterfaces;
   s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
   s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
-
+  
   // Run OnGraphicsDeviceEvent(initialize) manually on plugin load - the plugin might have been loaded after the graphics device was initialized
   OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
-
+  
   Debug("Loaded plugin\n");
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
-  Debug("About to unload plugin\n");
-  s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+  // Debug("About to unload plugin\n");
+  // s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEvent(UnityRenderingExtEventType event, void* data) {
+    if (!s_DrawcallTimer) {
+        return;
+    }
   switch(event) {
   case kUnityRenderingExtEventBeforeDrawCall: {
+      Debug("Starting drawcall profiling\n");
       // Start rendering time query
       s_DrawcallTimer->Start(reinterpret_cast<UnityRenderingExtBeforeDrawCallParams*>(data));
       break;
     }
     
-  case kUnityRenderingExtEventAfterDrawCall: {
-      // End the timing query and save it somewhere
-      s_DrawcallTimer->End();
-      break;
-    }
+  // case kUnityRenderingExtEventAfterDrawCall: {
+  //     // End the timing query and save it somewhere
+  //     s_DrawcallTimer->End();
+  //     break;
+  //   }
   }
 }
 
 static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-  s_DrawcallTimer->AdvanceFrame();
+  //s_DrawcallTimer->AdvanceFrame();
 }
 
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
@@ -164,14 +178,14 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnF
 
 // Register logging function which takes a string
 extern "C" void UNITY_INTERFACE_EXPORT SetDebugFunction(DebugFuncPtr fp) {
-  //Debug = fp;
-  //if (s_DrawcallTimer) {
-  //    s_DrawcallTimer->SetDebugFunction(Debug);
-  //}
+  // Debug = fp;
+  // if (s_DrawcallTimer) {
+  //     s_DrawcallTimer->SetDebugFunction(Debug);
+  // }
 }
 
 static void simple_print(const char* c) {
-    printf(c);
+    std::cout << c << std::endl;
 }
 
 static const char * GfxRendererToString(UnityGfxRenderer deviceType) {
