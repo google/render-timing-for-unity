@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.8)
 project(RenderTimingPlugin)
 
+if(UNIX AND NOT APPLE)
+    message(FATAL_ERROR "Linux is not a supported build platform")
+endif()
+
 function(set_output_directories target output_dir)
     set_target_properties(${target} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${output_dir})
     set_target_properties(${target} PROPERTIES LIBRARY_OUTPUT_DIRECTORY_DEBUG ${output_dir})
@@ -23,18 +27,30 @@ set(COMMON_SOURCE
     RenderTimingPlugin.h RenderTimingPlugin.cpp
     Timers/IDrawcallTimer.h Timers/IDrawcallTimer.cpp
     Timers/DX9DrawcallTimer.h Timers/DX9DrawcallTimer.cpp
-    Timers/DX11DrawcallTimer.h Timers/DX11DrawcallTimer.cpp)
+    Timers/DX11DrawcallTimer.h Timers/DX11DrawcallTimer.cpp
+    Timers/OpenGLDrawcallTimer.h Timers/OpenGLDrawcallTimer.cpp)
 
 add_library(RenderTimingPlugin SHARED ${COMMON_SOURCE})
 
-message(sizeof void p: ${CMAKE_SIZEOF_VOID_P})
+target_include_directories(RenderTimingPlugin SYSTEM PRIVATE ${CMAKE_CURRENT_LIST_DIR}/3rdparty/glew/include/)
+target_link_libraries(RenderTimingPlugin PRIVATE opengl32)
 
+# Set the output directory based on the platform - for Apple we build a combined 32/64 bit binary, so we put the 
+# binary in the plugins directory directly, while for Windows we build separate 32-bit and 64-bit binaries, and they
+# have to live in their own directories under Plugins
+#
+# Additionally, we need to link GLEW... for GL on Windows. GLEW didn't come with a MacOS binary so I'll need to solve 
+# that, but for now OpenGL isn't supported on MacOS
 if(APPLE)
     set_output_directories(RenderTimingPlugin ${CMAKE_CURRENT_LIST_DIR}/../../Plugins)
 else()
+    # Windows only. Linux is not supported
     if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") 
         set_output_directories(RenderTimingPlugin ${CMAKE_CURRENT_LIST_DIR}/../../Plugins/x86)
+        target_link_libraries(RenderTimingPlugin PRIVATE ${CMAKE_CURRENT_LIST_DIR}/3rdparty/glew/lib/Release/Win32/glew32.lib)
     else()
         set_output_directories(RenderTimingPlugin ${CMAKE_CURRENT_LIST_DIR}/../../Plugins/x86_64)
+        target_link_libraries(RenderTimingPlugin PRIVATE ${CMAKE_CURRENT_LIST_DIR}/3rdparty/glew/lib/Release/x64/glew32.lib)
     endif()
+    
 endif()

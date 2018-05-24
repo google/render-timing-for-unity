@@ -20,8 +20,20 @@ uint8_t IDrawcallTimer::GetNextFrameIndex()
     return (_frameCounter + 1) % MAX_QUERY_SETS;
 }
 
+uint8_t IDrawcallTimer::GetLastFrameIndex()
+{
+    if (_frameCounter == 0) {
+        return MAX_QUERY_SETS - 1;
+    }
+    return (_frameCounter - 1) % MAX_QUERY_SETS;
+}
+
 const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetMostRecentShaderExecutionTimes() const {
     return _shaderTimes;
+}
+
+double IDrawcallTimer::GetLastFrameGpuTime() const {
+    return _lastFrameTime;
 }
 
 bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {

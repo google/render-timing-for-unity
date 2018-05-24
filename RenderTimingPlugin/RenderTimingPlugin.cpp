@@ -29,17 +29,13 @@
 
 #include <algorithm>
 
+#include "Timers\IDrawcallTimer.h"
+
 // --------------------------------------------------------------------------
 // Include headers for the graphics APIs we support
 
 #if SUPPORT_OPENGL_UNIFIED
-#  if UNITY_IPHONE
-#    include <OpenGLES/ES2/gl.h>
-#  elif UNITY_ANDROID
-#    include <GLES3/gl3.h>
-#    define GL_TIME_ELAPSED                   0x88BF
-#    define GL_GPU_DISJOINT                   0x8FBB
-#  endif
+#include "Timers/OpenGLDrawcallTimer.h"
 #endif
 
 #if SUPPORT_D3D9
@@ -74,19 +70,22 @@ static void CreateProfilerForCurrentGfxApi() {
   }
 
   switch (s_DeviceType) {
-  case kUnityGfxRendererOpenGLES20: {
-      Debug("OpenGLES 2.0 device\n");
-      break;
-    }
-
+  case kUnityGfxRendererOpenGLCore:
+  case kUnityGfxRendererOpenGLES20:
   case kUnityGfxRendererOpenGLES30: {
-      Debug("OpenGLES 3.0 device\n");
+      Debug("OpenGL device");
+      s_DrawcallTimer = std::make_unique<OpenGLDrawcallTimer>(Debug);
       break;
     }
 
   #if SUPPORT_D3D9
   case kUnityGfxRendererD3D9: {
       Debug("DirectX 9 device");
+
+      if (s_UnityInterfaces == nullptr) {
+          Debug("Unity interfaces is null!");
+          return;
+      }
 
       IUnityGraphicsD3D9* d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
       s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
@@ -139,7 +138,7 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnF
     return OnFrameEnd;
 }
 
-extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetMostRecentShaderTimings(ShaderTime** times, __int32* size) {
+extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTimings(ShaderTime** times, __int32* size) {
     static std::vector<ShaderTime> timingsList;
 
     if (!s_DrawcallTimer) {
@@ -147,6 +146,10 @@ extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetMostRecentShaderTi
     }
 
     const auto& timings = s_DrawcallTimer->GetMostRecentShaderExecutionTimes();
+    if (timings.empty()) {
+        return false;
+    }
+
     timingsList.clear();
     timingsList.reserve(timings.size());
     for (const auto& timing : timings) {
@@ -168,6 +171,14 @@ extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetMostRecentShaderTi
     *size = static_cast<__int32>(timingsList.size());
 
     return true;
+}
+
+extern "C" float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameGpuTime() {
+    if (!s_DrawcallTimer) {
+        return 0;
+    }
+
+    return s_DrawcallTimer->GetLastFrameGpuTime();
 }
 
 // Register logging function which takes a string

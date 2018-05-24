@@ -18,7 +18,6 @@
 
 #include "Unity/IUnityInterface.h"
 
-
 // Which platform we are on?
 #if _MSC_VER
 #define UNITY_WIN 1

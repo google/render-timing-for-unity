@@ -139,10 +139,10 @@ void DX11DrawcallTimer::ResolveQueries()
         _d3dContext->GetData(curFullFrameQuery.StartQuery, &frameStart, sizeof(uint64_t), 0);
         _d3dContext->GetData(curFullFrameQuery.EndQuery, &frameEnd, sizeof(uint64_t), 0);
 
-        auto fullFrameTime = 1000 * double(frameEnd - frameStart) / double(disjointData.Frequency);
+        _lastFrameTime = 1000 * double(frameEnd - frameStart) / double(disjointData.Frequency);
         
         if (_frameCounter % 30 == 0) {
-            ss << "The frame took " << fullFrameTime << "ms total\n";
+            ss << "The frame took " << _lastFrameTime << "ms total\n";
             Debug(ss.str().c_str());
         }
     }
@@ -214,8 +214,6 @@ void DX11DrawcallTimer::ResolveQueries()
             }
         }
     }
-
-    // TODO: Propagate the timing data to the C# code 
 
     // Erase the data so there's no garbage for next time 
     _timers[_curFrame].clear();

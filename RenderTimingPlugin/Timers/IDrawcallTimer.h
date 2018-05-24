@@ -75,15 +75,21 @@ public:
      */
     const std::unordered_map<ShaderNames, double>& GetMostRecentShaderExecutionTimes() const;
 
+    double GetLastFrameGpuTime() const;
+
     void SetDebugFunction(DebugFuncPtr func);
 
     uint8_t GetNextFrameIndex();
+
+    uint8_t GetLastFrameIndex();
     
 protected:
     uint8_t _curFrame = 0;
 
     // If this thing overflows then you should probably close your application
     uint64_t _frameCounter = 0;
+
+    double _lastFrameTime = 0;
 
     DebugFuncPtr Debug;
 
