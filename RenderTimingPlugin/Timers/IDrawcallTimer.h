@@ -4,6 +4,7 @@
 
 #include <unordered_map>
 #include <vector> 
+#include <string>
 
 #include "../Unity/IUnityRenderingExtensions.h"
 #include "../RenderTimingPlugin.h"

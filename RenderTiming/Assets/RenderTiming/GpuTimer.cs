@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using AOT;
+using Microsoft.Win32.SafeHandles;
 using UnityEngine;
 
 /// Attach me to an active scene object to measure GPU render time
@@ -119,7 +120,10 @@ public class GpuTimer
   /// </summary>
   public void Update()
   {
+    // Only standalone is supported ATM
+    #if UNITY_STANDALONE_WIN
     GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
+    #endif
 
     GetShaderTimings();
     GpuTime = GetLastFrameGpuTime();
@@ -127,6 +131,8 @@ public class GpuTimer
   
   #region Native functions
 
+  // Only standalone is supported ATM
+  #if UNITY_STANDALONE_WIN
   [DllImport ("RenderTimingPlugin")]
   private static extern void SetDebugFunction(IntPtr ftp);
   
@@ -139,6 +145,27 @@ public class GpuTimer
 
   [DllImport("RenderTimingPlugin")]
   private static extern float GetLastFrameGpuTime();
+  
+  #else  
+  private static void SetDebugFunction(IntPtr fp) {}
+
+  private static IntPtr GetOnFrameEndFunction()
+  {
+    return IntPtr.Zero;
+  }
+
+  private static bool GetLastFrameShaderTimings(out IntPtr arrayPtr, out int size)
+  {
+    size = 0;
+    arrayPtr = IntPtr.Zero;
+    return false;
+  }
+
+  private static float GetLastFrameGpuTime()
+  {
+    return 0;
+  }
+  #endif
   
   #endregion
   

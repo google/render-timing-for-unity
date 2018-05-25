@@ -29,13 +29,19 @@
 
 #include <algorithm>
 
-#include "Timers\IDrawcallTimer.h"
+#include "Timers/IDrawcallTimer.h"
 
 // --------------------------------------------------------------------------
 // Include headers for the graphics APIs we support
 
 #if SUPPORT_OPENGL_UNIFIED
-#include "Timers/OpenGLDrawcallTimer.h"
+#  if UNITY_IPHONE
+#    include <OpenGLES/ES2/gl.h>
+#  elif UNITY_ANDROID
+#    include <GLES3/gl3.h>
+#    define GL_TIME_ELAPSED                   0x88BF
+#    define GL_GPU_DISJOINT                   0x8FBB
+#  endif
 #endif
 
 #if SUPPORT_D3D9
@@ -55,7 +61,7 @@ static std::unique_ptr<IDrawcallTimer> s_DrawcallTimer;
 static const char * GfxRendererToString(UnityGfxRenderer deviceType);
 
 
-void simple_print(const char* c);
+static void simple_print(const char* c);
 
 static DebugFuncPtr Debug = simple_print;
 
@@ -70,22 +76,19 @@ static void CreateProfilerForCurrentGfxApi() {
   }
 
   switch (s_DeviceType) {
-  case kUnityGfxRendererOpenGLCore:
-  case kUnityGfxRendererOpenGLES20:
+  case kUnityGfxRendererOpenGLES20: {
+      Debug("OpenGLES 2.0 device\n");
+      break;
+    }
+
   case kUnityGfxRendererOpenGLES30: {
-      Debug("OpenGL device");
-      s_DrawcallTimer = std::make_unique<OpenGLDrawcallTimer>(Debug);
+      Debug("OpenGLES 3.0 device\n");
       break;
     }
 
   #if SUPPORT_D3D9
   case kUnityGfxRendererD3D9: {
       Debug("DirectX 9 device");
-
-      if (s_UnityInterfaces == nullptr) {
-          Debug("Unity interfaces is null!");
-          return;
-      }
 
       IUnityGraphicsD3D9* d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
       s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
@@ -131,14 +134,16 @@ extern "C" typedef struct {
 } ShaderTime;
 
 static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-    s_DrawcallTimer->AdvanceFrame();
+    if (s_DrawcallTimer) {
+        s_DrawcallTimer->AdvanceFrame();
+    }
 }
 
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
     return OnFrameEnd;
 }
 
-extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTimings(ShaderTime** times, __int32* size) {
+extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTimings(ShaderTime** times, int32_t* size) {
     static std::vector<ShaderTime> timingsList;
 
     if (!s_DrawcallTimer) {
@@ -168,17 +173,18 @@ extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTim
     std::sort(timingsList.begin(), timingsList.end(), [](const ShaderTime& timing1, const ShaderTime& timing2) { return timing1.Time > timing2.Time; });
 
     *times = &timingsList.front();
-    *size = static_cast<__int32>(timingsList.size());
+    *size = static_cast<int32_t>(timingsList.size());
 
     return true;
 }
 
 extern "C" float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameGpuTime() {
-    if (!s_DrawcallTimer) {
+    if (s_DrawcallTimer) {
+        return static_cast<float>(s_DrawcallTimer->GetLastFrameGpuTime());
+    }
+    else {
         return 0;
     }
-
-    return s_DrawcallTimer->GetLastFrameGpuTime();
 }
 
 // Register logging function which takes a string
@@ -199,7 +205,9 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
   
   case kUnityGfxDeviceEventShutdown: {
       s_DeviceType = kUnityGfxRendererNull;
-      s_DrawcallTimer.release();
+      if (s_DrawcallTimer) {
+        s_DrawcallTimer.release();
+      }
       break;
     }
   
@@ -234,9 +242,9 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEvent(UnityRenderingExtEventType event, void* data) {
-    if (!s_DrawcallTimer) {
-        return;
-    }
+  if (!s_DrawcallTimer) {
+    return;
+  }
   switch(event) {
   case kUnityRenderingExtEventBeforeDrawCall: {
       // Start rendering time query

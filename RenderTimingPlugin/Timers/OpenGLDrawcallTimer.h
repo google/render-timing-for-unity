@@ -28,6 +28,9 @@ public:
     void End() override;
 
     void ResolveQueries() override;
+
+private:
+    uint64_t _timestampMask;
 };
 
 #ifndef NDEBUG

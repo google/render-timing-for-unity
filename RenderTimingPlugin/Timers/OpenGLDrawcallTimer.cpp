@@ -20,7 +20,18 @@ OpenGLDrawcallTimer::OpenGLDrawcallTimer(DebugFuncPtr debugFunc) : DrawcallTimer
 #endif
 #endif
     
-    glGenQueries(MAX_QUERY_SETS * 2, reinterpret_cast<GLuint*>(_fullFrameQueries));
+    for (int i = 0; i < MAX_QUERY_SETS; i++) {
+        glGenQueries(2, reinterpret_cast<GLuint*>(&_fullFrameQueries[i]));
+    }
+    glQueryCounter(_fullFrameQueries[_curFrame].StartQuery, GL_TIMESTAMP);
+
+    GLint queryBits;
+    glGetQueryiv(GL_TIMESTAMP, GL_QUERY_COUNTER_BITS, &queryBits);
+
+    _timestampMask = 0;
+    for (int i = 0; i < queryBits; i++) {
+        _timestampMask |= 1 << i;
+    }
 }
 
 void OpenGLDrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams * drawcallParams)
@@ -62,7 +73,7 @@ void OpenGLDrawcallTimer::ResolveQueries()
     bool record = true;
 
     glGetIntegerv(GL_GPU_DISJOINT, reinterpret_cast<GLint*>(&_disjointQueries[_curFrame]));
-    if (_disjointQueries[_curFrame] != 0) {
+    if (_disjointQueries[_curFrame] == GL_TRUE) {
         Debug("Disjoint! Throwing away current frame\n");
         record = false;
     }
@@ -70,20 +81,27 @@ void OpenGLDrawcallTimer::ResolveQueries()
 
     glQueryCounter(_fullFrameQueries[_curFrame].EndQuery, GL_TIMESTAMP);
 
-    const auto& curFullFrameQuery = _fullFrameQueries[GetLastFrameIndex()];
+    auto& curFullFrameQuery = _fullFrameQueries[GetLastFrameIndex()];
 
     GLuint available = 0;
     if (record) {
-        GLuint frameStart = 0, frameEnd = 0;
-        glGetQueryObjectuiv(curFullFrameQuery.StartQuery, GL_QUERY_RESULT, &frameStart);
-        glGetQueryObjectuiv(curFullFrameQuery.EndQuery, GL_QUERY_RESULT, &frameEnd);
+        uint64_t frameStart = 0, frameEnd = 0;
+        glGetQueryObjectui64v(curFullFrameQuery.StartQuery, GL_QUERY_RESULT, &frameStart);
+        glGetQueryObjectui64v(curFullFrameQuery.EndQuery, GL_QUERY_RESULT, &frameEnd);
+
+        frameStart = frameStart & _timestampMask;
+        frameEnd = frameEnd & _timestampMask;
 
         _lastFrameTime = (frameEnd - frameStart);
+        _lastFrameTime /= 1000000.0;
 
-        if (_frameCounter % 30 == 0) {
+        if (_frameCounter % 30 == 0 && _lastFrameTime > 0) {
             ss << "The frame took " << _lastFrameTime << "ms total";
             Debug(ss.str().c_str());
         }
+
+        glDeleteQueries(2, reinterpret_cast<GLuint*>(&curFullFrameQuery));
+        glGenQueries(2, reinterpret_cast<GLuint*>(&curFullFrameQuery));
     }
 
     _shaderTimes.clear();
@@ -122,15 +140,18 @@ void OpenGLDrawcallTimer::ResolveQueries()
                 glGetQueryObjectuiv(timer.StartQuery, GL_QUERY_RESULT_AVAILABLE, &available);
                 if (available) {
                     glGetQueryObjectuiv(timer.StartQuery, GL_QUERY_RESULT, &startTime);
+                    startTime = startTime & _timestampMask;
                 }
+
                 glGetQueryObjectuiv(timer.EndQuery, GL_QUERY_RESULT_AVAILABLE, &available);
                 if (available) {
                     glGetQueryObjectuiv(timer.EndQuery, GL_QUERY_RESULT, &endTime);
+                    endTime = endTime & _timestampMask;
                 }
 
                 // If the query result isn't ready, we shouldn't try to use it
                 if (startTime != 0 && endTime != 0) {
-                    drawcallTime = endTime - startTime;
+                    drawcallTime = (endTime - startTime) / 1000000.0;
                     shaderTime += drawcallTime;
                 }
             }
