@@ -1,0 +1,4 @@
+set(CMAKE_SYSTEM_NAME Android)
+set(CMAKE_SYSTEM_VERSION 21)
+
+add_definitions(-DUNITY_ANDROID)
