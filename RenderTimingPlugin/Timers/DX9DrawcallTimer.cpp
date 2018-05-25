@@ -37,16 +37,16 @@ DX9DrawcallTimer::DX9DrawcallTimer(IUnityGraphicsD3D9* d3d, DebugFuncPtr debugFu
 
     _disjointQueries[_curFrame]->Issue(D3DISSUE_BEGIN);
 
-    for (uint32_t i = 0; i < MAX_QUERY_SETS; i++) {
-        _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &(_fullFrameQueries[i].StartQuery));
-        _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &(_fullFrameQueries[i].EndQuery));
+    for (auto &fullFrameQuery : _fullFrameQueries) {
+        _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &(fullFrameQuery.StartQuery));
+        _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &(fullFrameQuery.EndQuery));
     }
 
     _fullFrameQueries[_curFrame].StartQuery->Issue(D3DISSUE_END);
 }
 
 void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) {
-    DrawcallQuery drawcallQuery;
+    DrawcallQuery drawcallQuery = {};
 
     if (_timerPool.empty()) {
         IDirect3DQuery9* startQuery;

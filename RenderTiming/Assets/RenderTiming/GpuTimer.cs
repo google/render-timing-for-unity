@@ -120,8 +120,8 @@ public class GpuTimer
   /// </summary>
   public void Update()
   {
-    // Only standalone is supported ATM
-    #if UNITY_STANDALONE_WIN
+    // Only standalone and Android are supported ATM
+    #if UNITY_STANDALONE_WIN || UNITY_ANDROID
     GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
     #endif
 
@@ -132,7 +132,7 @@ public class GpuTimer
   #region Native functions
 
   // Only standalone is supported ATM
-  #if UNITY_STANDALONE_WIN
+  #if UNITY_STANDALONE_WIN || UNITY_ANDROID
   [DllImport ("RenderTimingPlugin")]
   private static extern void SetDebugFunction(IntPtr ftp);
   

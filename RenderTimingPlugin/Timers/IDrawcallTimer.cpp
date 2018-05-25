@@ -6,7 +6,7 @@ void IDrawcallTimer::AdvanceFrame() {
     ResolveQueries();
 
     _frameCounter++;
-    _curFrame = _frameCounter % MAX_QUERY_SETS;
+    _curFrame = static_cast<uint8_t>(_frameCounter % MAX_QUERY_SETS);
 }
 
 void IDrawcallTimer::SetDebugFunction(DebugFuncPtr func)
@@ -17,7 +17,7 @@ void IDrawcallTimer::SetDebugFunction(DebugFuncPtr func)
 
 uint8_t IDrawcallTimer::GetNextFrameIndex()
 {
-    return (_frameCounter + 1) % MAX_QUERY_SETS;
+    return static_cast<uint8_t>((_frameCounter + 1) % MAX_QUERY_SETS);
 }
 
 uint8_t IDrawcallTimer::GetLastFrameIndex()
@@ -25,7 +25,7 @@ uint8_t IDrawcallTimer::GetLastFrameIndex()
     if (_frameCounter == 0) {
         return MAX_QUERY_SETS - 1;
     }
-    return (_frameCounter - 1) % MAX_QUERY_SETS;
+    return static_cast<uint8_t>((_frameCounter - 1) % MAX_QUERY_SETS);
 }
 
 const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetMostRecentShaderExecutionTimes() const {

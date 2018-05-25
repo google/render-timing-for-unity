@@ -1,12 +1,10 @@
-#pragma once
-
 #include "OpenGLDrawcallTimer.h"
 #if SUPPORT_OPENGL_UNIFIED
 
 #include <sstream>
 #include <iostream>
 
-std::string GetShaderName(GLuint* shader);
+std::string GetShaderName(const GLuint* shader);
 
 OpenGLDrawcallTimer::OpenGLDrawcallTimer(DebugFuncPtr debugFunc) : DrawcallTimer(debugFunc) {
 #if SUPPORT_OPENGL_CORE
@@ -14,29 +12,31 @@ OpenGLDrawcallTimer::OpenGLDrawcallTimer(DebugFuncPtr debugFunc) : DrawcallTimer
     glewExperimental = GL_TRUE;
     glewInit();
     glGetError();   // Apparently GLEW generates an error that we have to get rid of
-
 #ifndef NDEBUG
     EnableDebugCallback();
 #endif
 #endif
-    
-    for (int i = 0; i < MAX_QUERY_SETS; i++) {
-        glGenQueries(2, reinterpret_cast<GLuint*>(&_fullFrameQueries[i]));
-    }
-    glQueryCounter(_fullFrameQueries[_curFrame].StartQuery, GL_TIMESTAMP);
 
-    GLint queryBits;
+    for (auto &fullFrameQuery : _fullFrameQueries) {
+        glGenQueries(2, reinterpret_cast<GLuint*>(&fullFrameQuery));
+    }
+    glBeginQuery(GL_TIME_ELAPSED, _fullFrameQueries[_curFrame].StartQuery);
+
+    GLint queryBits = 32;
+#if SUPPORT_OPENGL_CORE
     glGetQueryiv(GL_TIMESTAMP, GL_QUERY_COUNTER_BITS, &queryBits);
+#endif
 
     _timestampMask = 0;
-    for (int i = 0; i < queryBits; i++) {
-        _timestampMask |= 1 << i;
+    for (uint32_t i = 0; i < (uint32_t)queryBits; i++) {
+        _timestampMask |= 1U << i;
     }
 }
 
 void OpenGLDrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams * drawcallParams)
 {
-    DrawcallQuery drawcallQuery;
+#if SUPPORT_OPENGL_CORE
+    DrawcallQuery drawcallQuery = {};
 
     if (_timerPool.empty()) {
         GLuint drawcallQueries[2];
@@ -58,14 +58,17 @@ void OpenGLDrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams * drawcall
     glQueryCounter(drawcallQuery.StartQuery, GL_TIMESTAMP);
     _curQuery = drawcallQuery;
     _timers[_curFrame][*drawcallParams].push_back(drawcallQuery);
+#endif
 }
 
 void OpenGLDrawcallTimer::End()
 {
+#if SUPPORT_OPENGL_CORE
     glQueryCounter(_curQuery.EndQuery, GL_TIMESTAMP);
     if (glGetError() != GL_NO_ERROR) { 
         Debug("glEndQuery error"); 
     }
+#endif
 }
 
 void OpenGLDrawcallTimer::ResolveQueries()
@@ -79,12 +82,17 @@ void OpenGLDrawcallTimer::ResolveQueries()
     }
     std::stringstream ss;
 
+#if SUPPORT_OPENGL_CORE
     glQueryCounter(_fullFrameQueries[_curFrame].EndQuery, GL_TIMESTAMP);
+#else
+    glEndQuery(GL_TIME_ELAPSED);
+#endif
 
     auto& curFullFrameQuery = _fullFrameQueries[GetLastFrameIndex()];
 
     GLuint available = 0;
     if (record) {
+#if SUPPORT_OPENGL_CORE
         uint64_t frameStart = 0, frameEnd = 0;
         glGetQueryObjectui64v(curFullFrameQuery.StartQuery, GL_QUERY_RESULT, &frameStart);
         glGetQueryObjectui64v(curFullFrameQuery.EndQuery, GL_QUERY_RESULT, &frameEnd);
@@ -92,7 +100,17 @@ void OpenGLDrawcallTimer::ResolveQueries()
         frameStart = frameStart & _timestampMask;
         frameEnd = frameEnd & _timestampMask;
 
-        _lastFrameTime = (frameEnd - frameStart);
+        _lastFrameTime = static_cast<double>(frameEnd - frameStart);
+
+#else
+        uint32_t frameStart = 0;
+        glGetQueryObjectuiv(curFullFrameQuery.StartQuery, GL_QUERY_RESULT, &frameStart);
+        _lastFrameTime = static_cast<double>(frameStart);
+
+        glDeleteQueries(1, &curFullFrameQuery.StartQuery);
+        glGenQueries(1, &curFullFrameQuery.StartQuery);
+#endif
+
         _lastFrameTime /= 1000000.0;
 
         if (_frameCounter % 30 == 0 && _lastFrameTime > 0) {
@@ -112,41 +130,41 @@ void OpenGLDrawcallTimer::ResolveQueries()
         ShaderNames shaderNames;
 
         if (shader.vertexShader != nullptr) {
-            GLuint* vertexShader = reinterpret_cast<GLuint*>(shader.vertexShader);
+            auto * vertexShader = reinterpret_cast<GLuint*>(shader.vertexShader);
             shaderNames.Vertex = GetShaderName(vertexShader);
         }
         if (shader.geometryShader != nullptr) {
-            GLuint* geometryShader = reinterpret_cast<GLuint*>(shader.geometryShader);
+            auto* geometryShader = reinterpret_cast<GLuint*>(shader.geometryShader);
             shaderNames.Geometry = GetShaderName(geometryShader);
         }
         if (shader.domainShader != nullptr) {
-            GLuint* domainShader = reinterpret_cast<GLuint*>(shader.domainShader);
+            auto* domainShader = reinterpret_cast<GLuint*>(shader.domainShader);
             shaderNames.Domain = GetShaderName(domainShader);
         }
         if (shader.hullShader != nullptr) {
-            GLuint* hullShader = reinterpret_cast<GLuint*>(shader.hullShader);
+            auto* hullShader = reinterpret_cast<GLuint*>(shader.hullShader);
             shaderNames.Hull = GetShaderName(hullShader);
         }
         if (shader.fragmentShader != nullptr) {
-            GLuint* pixelShader = reinterpret_cast<GLuint*>(shader.fragmentShader);
+            auto* pixelShader = reinterpret_cast<GLuint*>(shader.fragmentShader);
             shaderNames.Pixel = GetShaderName(pixelShader);
         }
 
-        uint64_t shaderTime = 0;
-        uint64_t drawcallTime = 0;
+        double shaderTime = 0;
+        double drawcallTime = 0;
         for (const auto& timer : shaderTimers.second) {
             if (record) {
                 GLuint startTime = 0, endTime = 0; 
                 glGetQueryObjectuiv(timer.StartQuery, GL_QUERY_RESULT_AVAILABLE, &available);
                 if (available) {
                     glGetQueryObjectuiv(timer.StartQuery, GL_QUERY_RESULT, &startTime);
-                    startTime = startTime & _timestampMask;
+                    startTime = static_cast<GLuint>(startTime & _timestampMask);
                 }
 
                 glGetQueryObjectuiv(timer.EndQuery, GL_QUERY_RESULT_AVAILABLE, &available);
                 if (available) {
                     glGetQueryObjectuiv(timer.EndQuery, GL_QUERY_RESULT, &endTime);
-                    endTime = endTime & _timestampMask;
+                    endTime = static_cast<GLuint>(endTime & _timestampMask);
                 }
 
                 // If the query result isn't ready, we shouldn't try to use it
@@ -160,7 +178,7 @@ void OpenGLDrawcallTimer::ResolveQueries()
         }
 
         if (record) {
-            _shaderTimes[shaderNames] = 1000 * double(shaderTime);
+            _shaderTimes[shaderNames] = 1000 * shaderTime;
 
             if (_frameCounter % 30 == 0 && _shaderTimes[shaderNames] > 0) {
                 ss.str(std::string());
@@ -186,10 +204,11 @@ void OpenGLDrawcallTimer::ResolveQueries()
     _timers[_curFrame].clear();
 
     // Start the next frame
-    glQueryCounter(_fullFrameQueries[GetNextFrameIndex()].StartQuery, GL_TIMESTAMP);
+    glBeginQuery(GL_TIME_ELAPSED, _fullFrameQueries[GetNextFrameIndex()].StartQuery);
 }
 
 #ifndef NDEBUG
+#ifdef SUPPORT_OPENGL_CORE
 void EnableDebugCallback() 
 {
     glEnable(GL_DEBUG_OUTPUT);
@@ -277,19 +296,27 @@ void GLAPIENTRY OnOpenGLMessage(GLenum source, GLenum type, GLuint id, GLenum se
     }
 
     std::stringstream ss;
-    std::cout << "{\"severity\":\"" << TranslateDebugSeverity(severity) << "\",\"source\":\"" << TranslateDebugSource(source) << "\",\"type\":\"" << TranslateDebugType(type) << "\",\"object\":" << id << ",\"message\":\"" << message << "\"}";
+    std::cout << R"({"severity":")" << TranslateDebugSeverity(severity) << R"(","source":")" << TranslateDebugSource(source)
+              << R"(","type":")" << TranslateDebugType(type) << R"(","object":)" << id << R"(,"message":")" << message << R"("})";
     std::cout << std::endl;
 }
 #endif
+#endif
 
-std::string GetShaderName(GLuint* shader) 
+std::string GetShaderName(const GLuint* shader)
 {
+#if SUPPORT_OPENGL_CORE
     GLsizei shaderNameSize = 512;
-    char* shaderName = new char[shaderNameSize];
+    auto * shaderName = new char[shaderNameSize];
     glGetObjectLabel(GL_SHADER, *shader, shaderNameSize, &shaderNameSize, shaderName);
     shaderName[shaderNameSize] = '\0';
 
     return { shaderName };
+#else
+    std::stringstream ss;
+    ss << *shader;
+    return ss.str();
+#endif
 }
 
 #endif

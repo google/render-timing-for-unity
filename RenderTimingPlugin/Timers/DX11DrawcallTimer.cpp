@@ -25,8 +25,8 @@ DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d, DebugFuncPtr debu
     D3D11_QUERY_DESC disjointQueryDesc;
     disjointQueryDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
     disjointQueryDesc.MiscFlags = 0;
-    for (int i = 0; i < MAX_QUERY_SETS; i++) {
-        _d3dDevice->CreateQuery(&disjointQueryDesc, &_disjointQueries[i]);
+    for (auto &disjointQuery : _disjointQueries) {
+        _d3dDevice->CreateQuery(&disjointQueryDesc, &disjointQuery);
     }
 
     _d3dContext->Begin(_disjointQueries[_curFrame]);
@@ -34,9 +34,9 @@ DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d, DebugFuncPtr debu
     D3D11_QUERY_DESC fullFrameQueryDesc;
     fullFrameQueryDesc.Query = D3D11_QUERY_TIMESTAMP;
     fullFrameQueryDesc.MiscFlags = 0;
-    for (uint32_t i = 0; i < MAX_QUERY_SETS; i++) {
-        _d3dDevice->CreateQuery(&fullFrameQueryDesc, &(_fullFrameQueries[i].StartQuery));
-        _d3dDevice->CreateQuery(&fullFrameQueryDesc, &(_fullFrameQueries[i].EndQuery));
+    for (auto &fullFrameQuery : _fullFrameQueries) {
+        _d3dDevice->CreateQuery(&fullFrameQueryDesc, &(fullFrameQuery.StartQuery));
+        _d3dDevice->CreateQuery(&fullFrameQueryDesc, &(fullFrameQuery.EndQuery));
     }
 
     _d3dContext->End(_fullFrameQueries[_curFrame].StartQuery);
@@ -48,7 +48,7 @@ DX11DrawcallTimer::~DX11DrawcallTimer()
 }
 
 void DX11DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) {
-    DrawcallQuery drawcallQuery;
+    DrawcallQuery drawcallQuery = {};
 
     if (_timerPool.empty()) {
         ID3D11Query* startQuery;
@@ -222,7 +222,7 @@ void DX11DrawcallTimer::ResolveQueries()
 std::string GetShaderName(ID3D11DeviceChild* shader) {
 
     uint32_t shaderNameSize = 512;
-    char* shaderName = new char[shaderNameSize];
+    auto * shaderName = new char[shaderNameSize];
     shader->GetPrivateData(WKPDID_D3DDebugObjectName, &shaderNameSize, shaderName);
     shaderName[shaderNameSize] = '\0';
 

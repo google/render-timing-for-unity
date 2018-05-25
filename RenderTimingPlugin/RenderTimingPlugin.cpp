@@ -29,7 +29,7 @@
 
 #include <algorithm>
 
-#include "Timers\IDrawcallTimer.h"
+#include "Timers/IDrawcallTimer.h"
 
 // --------------------------------------------------------------------------
 // Include headers for the graphics APIs we support
@@ -46,8 +46,8 @@
 #include "Timers/DX11DrawcallTimer.h"
 #endif
 
-static IUnityInterfaces* s_UnityInterfaces = NULL;
-static IUnityGraphics* s_Graphics = NULL;
+static IUnityInterfaces* s_UnityInterfaces = nullptr;
+static IUnityGraphics* s_Graphics = nullptr;
 static UnityGfxRenderer s_DeviceType = kUnityGfxRendererNull;
 
 static std::unique_ptr<IDrawcallTimer> s_DrawcallTimer;
@@ -87,7 +87,7 @@ static void CreateProfilerForCurrentGfxApi() {
           return;
       }
 
-      IUnityGraphicsD3D9* d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
+      auto * d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
       s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
       break;
     }
@@ -103,7 +103,7 @@ static void CreateProfilerForCurrentGfxApi() {
       }
 
       // Load DirectX 11
-      IUnityGraphicsD3D11* d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
+      auto * d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
       s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(d3d11Interface, Debug);
       break;
     }
@@ -182,7 +182,7 @@ extern "C" float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameGpuTime(
         return 0;
     }
 
-    return s_DrawcallTimer->GetLastFrameGpuTime();
+    return static_cast<float>(s_DrawcallTimer->GetLastFrameGpuTime());
 }
 
 // Register logging function which takes a string

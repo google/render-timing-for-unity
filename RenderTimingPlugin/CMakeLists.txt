@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 project(RenderTimingPlugin)
 
-if(UNIX AND NOT APPLE)
-    message(FATAL_ERROR "Linux is not a supported build platform")
-endif()
-
 function(set_output_directories target output_dir)
     set_target_properties(${target} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${output_dir})
     set_target_properties(${target} PROPERTIES LIBRARY_OUTPUT_DIRECTORY_DEBUG ${output_dir})
@@ -32,6 +28,8 @@ set(COMMON_SOURCE
     Timers/DX11DrawcallTimer.h Timers/DX11DrawcallTimer.cpp
     Timers/OpenGLDrawcallTimer.h Timers/OpenGLDrawcallTimer.cpp)
 
+message(${COMMON_SOURCE})
+
 add_library(RenderTimingPlugin SHARED ${COMMON_SOURCE})
 
 # Set the output directory based on the platform - for Apple we build a combined 32/64 bit binary, so we put the 
@@ -43,6 +41,8 @@ add_library(RenderTimingPlugin SHARED ${COMMON_SOURCE})
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
     set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR}/Android)
+    add_definitions(-DUNITY_ANDROID)
+    target_link_libraries(RenderTimingPlugin GLESv3)
 
 elseif(APPLE)
     set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR})

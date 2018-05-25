@@ -18,7 +18,7 @@
 
 class OpenGLDrawcallTimer : public DrawcallTimer<GLuint> {
 public:
-    OpenGLDrawcallTimer(DebugFuncPtr debugFunc);
+    explicit OpenGLDrawcallTimer(DebugFuncPtr debugFunc);
 
     /*
     * Inherited from DrawcallTimer
@@ -30,13 +30,20 @@ public:
     void ResolveQueries() override;
 
 private:
+#if SUPPORT_OPENGL_CORE
     uint64_t _timestampMask;
+
+#else
+    uint32_t _timestampMask;
+#endif
 };
 
 #ifndef NDEBUG
+#ifdef SUPPORT_OPENGL_CORE
 void EnableDebugCallback();
 
 void GLAPIENTRY OnOpenGLMessage(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, 
     const GLchar* message, const void* userParam);
+#endif
 #endif
 #endif
