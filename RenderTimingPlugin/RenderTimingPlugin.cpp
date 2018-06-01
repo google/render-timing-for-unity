@@ -54,7 +54,6 @@ static std::unique_ptr<IDrawcallTimer> s_DrawcallTimer;
 
 static const char * GfxRendererToString(UnityGfxRenderer deviceType);
 
-
 static void simple_print(const char* c);
 
 static DebugFuncPtr Debug = simple_print;
@@ -70,6 +69,7 @@ static void CreateProfilerForCurrentGfxApi() {
   }
 
   switch (s_DeviceType) {
+  #if SUPPORT_OPENGL_UNIFIED && UNITY_ANDROID
   case kUnityGfxRendererOpenGLCore:
   case kUnityGfxRendererOpenGLES20:
   case kUnityGfxRendererOpenGLES30: {
@@ -77,6 +77,7 @@ static void CreateProfilerForCurrentGfxApi() {
       s_DrawcallTimer = std::make_unique<OpenGLDrawcallTimer>(Debug);
       break;
     }
+  #endif
 
   #if SUPPORT_D3D9
   case kUnityGfxRendererD3D9: {
@@ -87,7 +88,7 @@ static void CreateProfilerForCurrentGfxApi() {
           return;
       }
 
-      auto * d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
+      IUnityGraphicsD3D9 * d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
       s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
       break;
     }
@@ -103,7 +104,7 @@ static void CreateProfilerForCurrentGfxApi() {
       }
 
       // Load DirectX 11
-      auto * d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
+      IUnityGraphicsD3D11 * d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
       s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(d3d11Interface, Debug);
       break;
     }
@@ -131,7 +132,9 @@ extern "C" typedef struct {
 } ShaderTime;
 
 static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-    s_DrawcallTimer->AdvanceFrame();
+    if(s_DrawcallTimer) {
+        s_DrawcallTimer->AdvanceFrame();
+    }
 }
 
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
@@ -203,7 +206,9 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType ev
   
   case kUnityGfxDeviceEventShutdown: {
       s_DeviceType = kUnityGfxRendererNull;
-      s_DrawcallTimer.release();
+      if(s_DrawcallTimer) {
+        s_DrawcallTimer.release();
+      }
       break;
     }
   

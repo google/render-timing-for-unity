@@ -18,10 +18,10 @@
 
 #include "Unity/IUnityInterface.h"
 
-
 // Which platform we are on?
 #if _MSC_VER
-#define UNITY_WIN 1
+  #define UNITY_WIN 1
+  #define UNITY_ANDROID 1
 #elif defined(__APPLE__)
   #if defined(__arm__)
     #define UNITY_IPHONE 1
@@ -54,9 +54,9 @@
   #define SUPPORT_OPENGL_CORE 1
 
 #elif UNITY_IPHONE
-  #define SUPPORT_OPENGL_UNIFIED 1
-  #define SUPPORT_OPENGL_ES 1
   #define SUPPORT_METAL 1
+  #undef SUPPORT_OPENGL_UNIFIED
+  #undef SUPPORT_OPENGL_ES
 
 #elif UNITY_ANDROID
   #define SUPPORT_OPENGL_UNIFIED 1

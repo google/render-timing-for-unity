@@ -13,12 +13,13 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using AOT;
-using Microsoft.Win32.SafeHandles;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /// Attach me to an active scene object to measure GPU render time
 ///
@@ -26,9 +27,7 @@ using UnityEngine;
 /// done in WaitForEndOfFrame may not be accounted for, depending on script order.
 ///
 /// TODO: support multiple & nested timings per frame
-public class GpuTimer
-{
-  
+public class RenderTiming : MonoBehaviour {
   [StructLayout(LayoutKind.Sequential)]
   public struct ShaderTiming
   {
@@ -37,7 +36,7 @@ public class GpuTimer
     public string HullName;
     public string DomainName;
     public string FragmentName;
-    
+
     public double Time;
 
     public override string ToString()
@@ -77,117 +76,125 @@ public class GpuTimer
       return sb.ToString();
     }
   }
-
-  public static GpuTimer Instance
-  {
-    get
-    {
-      if (_instance == null)
-      {
-        _instance = new GpuTimer();
-      }
-
-      return _instance;
-    }
-  }
-
-  private static GpuTimer _instance = null;
+  
+  public static RenderTiming instance;
 
   /// True to periodically log timing to debug console.  Honored only at init.
   public bool logTiming = true;
   
+
+  [DllImport ("RenderTimingPlugin")]
+  private static extern void SetDebugFunction(IntPtr ftp);
+  [DllImport ("RenderTimingPlugin")]
+  private static extern IntPtr GetOnFrameEndFunction();
+
+  [DllImport("RenderTimingPlugin")]
+  [return: MarshalAs(UnmanagedType.I1)]
+  private static extern bool GetMostRecentShaderTimings(out IntPtr arrayPtr, out int size);
+
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate void MyDelegate(string str);
+  private bool isInitialized;
+  private Coroutine loggingCoroutine;
+  private Coroutine updateCoroutine;
 
   [MonoPInvokeCallback(typeof(MyDelegate))]
   static void DebugCallback(string str) {
     Debug.LogWarning("RenderTimingPlugin: " + str);
   }
 
-  public List<ShaderTiming> ShaderTimings { get; private set; }
-  public double GpuTime { get; private set; }
+  public static List<ShaderTiming> GetShaderTimings()
+  {
+    var arrayValue = IntPtr.Zero;
+    var size = 0;
+    var list = new List<ShaderTiming>();
+
+    if (!GetMostRecentShaderTimings(out arrayValue, out size))
+    {
+      return null;
+    }
+
+    var shaderTimingSize = Marshal.SizeOf(typeof(ShaderTiming));
+    for (var i = 0; i < size; i++)
+    {
+      var cur = (ShaderTiming) Marshal.PtrToStructure(arrayValue, typeof(ShaderTiming));
+      list.Add(cur);
+      arrayValue = new IntPtr(arrayValue.ToInt32() + shaderTimingSize);
+    }
+
+    return list;
+  }
   
-  private GpuTimer() {
+  private void Awake() {
+    Debug.Assert(instance == null, "only one instance allowed");
+    instance = this;
+    // Note: intentionally not accessing any plugin code here so that leaving the component
+    // disabled will avoid loading the plugin.
+  }
+
+  // called from first OnEnable()
+  private void Init() {
     MyDelegate callback_delegate = DebugCallback;
     IntPtr intptr_delegate = Marshal.GetFunctionPointerForDelegate(callback_delegate);
     SetDebugFunction(intptr_delegate);
 
-    ShaderTimings = new List<ShaderTiming>();
+    isInitialized = true;
   }
 
-  /// <summary>
-  /// Tells the native GPU timer to consider the current frame finished, then caches the last frame's data 
-  /// </summary>
-  public void Update()
-  {
-    // The DLL doesn't work on Android, and it's kinda broken in Editor too, so let's just turn it off for now
-    #if UNITY_ANDROID
-    GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
-    #endif
-
-    GetShaderTimings();
-    GpuTime = GetLastFrameGpuTime();
-  }
-  
-  #region Native functions
-  
-  // The DLL doesn't work on Android, and it's kinda broken in Editor too, so let's just turn it off for now
-  #if UNITY_ANDROID
-  [DllImport ("RenderTimingPlugin")]
-  private static extern void SetDebugFunction(IntPtr ftp);
-  
-  [DllImport ("RenderTimingPlugin")]
-  private static extern IntPtr GetOnFrameEndFunction();
-
-  [DllImport("RenderTimingPlugin")]
-  [return: MarshalAs(UnmanagedType.I1)]
-  private static extern bool GetLastFrameShaderTimings(out IntPtr arrayPtr, out int size);
-
-  [DllImport("RenderTimingPlugin")]
-  private static extern float GetLastFrameGpuTime();
-  
-  #else  
-  private static void SetDebugFunction(IntPtr fp) {}
-
-  private static IntPtr GetOnFrameEndFunction()
-  {
-    return IntPtr.Zero;
-  }
-
-  private static bool GetLastFrameShaderTimings(out IntPtr arrayPtr, out int size)
-  {
-    size = 0;
-    arrayPtr = IntPtr.Zero;
-    return false;
-  }
-
-  private static float GetLastFrameGpuTime()
-  {
-    return 0;
-  }
-  #endif
-  
-  #endregion
-  
-  private void GetShaderTimings()
-  {
-    IntPtr arrayValue;
-    int numShaders;
-    ShaderTimings.Clear();
-
-    if (!GetLastFrameShaderTimings(out arrayValue, out numShaders))
-    {
-      return;
+  private void OnEnable() {
+    if (!isInitialized) {
+      Init();
     }
 
-    var shaderTimingSize = Marshal.SizeOf(typeof(ShaderTiming));
-    ShaderTimings.Capacity = numShaders;
-    for (var i = 0; i < numShaders; i++)
-    {
-      var cur = (ShaderTiming) Marshal.PtrToStructure(arrayValue, typeof(ShaderTiming));
-      ShaderTimings.Add(cur);
-
-      arrayValue = new IntPtr(arrayValue.ToInt32() + shaderTimingSize);
+    updateCoroutine = StartCoroutine(UpdateOnFrameEnd());
+    
+    if (logTiming) {
+      loggingCoroutine = StartCoroutine(ConsoleDisplay());
     }
+  }
+
+  private static IEnumerator ConsoleDisplay()
+  {
+    var sb = new StringBuilder();
+    while (true)
+    {
+      yield return new WaitForSeconds(1);
+      sb.Remove(0, sb.Length);
+
+      var timings = GetShaderTimings();
+      var numTimings = timings.Count;
+      ShaderTiming curTiming;
+
+      for (var i = 0; i < numTimings; i++)
+      {
+        curTiming = timings[i];
+
+        sb.Append(curTiming);
+        sb.Append("\n");
+      }
+      
+      DebugCallback(sb.ToString());
+    }
+  }
+
+  private void OnDisable()
+  {
+    StopCoroutine(updateCoroutine);
+
+    if (loggingCoroutine != null)
+    {
+      StopCoroutine(loggingCoroutine);
+    }
+  }
+
+  private static IEnumerator UpdateOnFrameEnd()
+  {
+    while (true)
+    {
+      yield return new WaitForEndOfFrame();
+      
+      GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
+    }
+    // ReSharper disable once IteratorNeverReturns
   }
 }
