@@ -120,8 +120,7 @@ public class GpuTimer
   /// </summary>
   public void Update()
   {
-    // The DLL doesn't work on Android, and it's kinda broken in Editor too, so let's just turn it off for now
-    #if UNITY_ANDROID
+    #if UNITY_ANDROID || UNITY_IOS
     GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
     #endif
 
@@ -131,7 +130,6 @@ public class GpuTimer
   
   #region Native functions
   
-  // The DLL doesn't work on Android, and it's kinda broken in Editor too, so let's just turn it off for now
   #if UNITY_ANDROID
   [DllImport ("RenderTimingPlugin")]
   private static extern void SetDebugFunction(IntPtr ftp);
@@ -146,7 +144,21 @@ public class GpuTimer
   [DllImport("RenderTimingPlugin")]
   private static extern float GetLastFrameGpuTime();
   
-  #else  
+  #elif UNITY_IOS
+  [DllImport ("__Internal")]
+  private static extern void SetDebugFunction(IntPtr ftp);
+  
+  [DllImport ("__Internal")]
+  private static extern IntPtr GetOnFrameEndFunction();
+
+  [DllImport("__Internal")]
+  [return: MarshalAs(UnmanagedType.I1)]
+  private static extern bool GetLastFrameShaderTimings(out IntPtr arrayPtr, out int size);
+
+  [DllImport("__Internal")]
+  private static extern float GetLastFrameGpuTime();
+
+  #else
   private static void SetDebugFunction(IntPtr fp) {}
 
   private static IntPtr GetOnFrameEndFunction()

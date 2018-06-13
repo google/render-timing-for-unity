@@ -16,8 +16,8 @@ endfunction()
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_STANDARD 11)
 
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CONFIGURATION_TYPES Debug)
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CONFIGURATION_TYPES Release)
 
 set(UNITY_PLUGINS_DIR ${CMAKE_CURRENT_LIST_DIR}/../../Plugins)
 
@@ -46,6 +46,9 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 
 elseif(APPLE)
     set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR})
+
+    add_subdirectory(MetalPlugin)
+    target_link_libraries(RenderTimingPlugin RenderTimingPlugin_Metal)
 
 else()
     # Windows only. Linux is not supported

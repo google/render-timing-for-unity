@@ -68,4 +68,8 @@
   #define SUPPORT_OPENGL_CORE 1
 #endif
 
+#if UNITY_OSX
+  #define SUPPORT_METAL 1
+#endif
+
 typedef void(*DebugFuncPtr)(const char*);

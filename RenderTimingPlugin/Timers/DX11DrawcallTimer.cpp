@@ -9,7 +9,8 @@
 
 std::string GetShaderName(ID3D11DeviceChild* shader);
 
-DX11DrawcallTimer::DX11DrawcallTimer(IUnityGraphicsD3D11* d3d, DebugFuncPtr debugFunc) : DrawcallTimer(debugFunc) {
+DX11DrawcallTimer::DX11DrawcallTimer(IUnityInterfaces* unityInterfaces, DebugFuncPtr debugFunc) : DrawcallTimer(debugFunc) {
+    IUnityGraphicsD3D11 * d3d = unityInterfaces->Get<IUnityGraphicsD3D11>();
     _d3dDevice = d3d->GetDevice();
     if (_d3dDevice == nullptr) {
         Debug("D3D device is null!\n");
