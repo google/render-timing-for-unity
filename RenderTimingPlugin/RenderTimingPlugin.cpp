@@ -38,10 +38,6 @@
 #include "Timers/OpenGLDrawcallTimer.h"
 #endif
 
-#if SUPPORT_METAL && UNITY_IPHONE
-#include "Timers/MetalDrawcallTimerAdapter.h"
-#endif
-
 #if SUPPORT_D3D9
 #include "Timers/DX9DrawcallTimer.h"
 #endif
@@ -75,6 +71,7 @@ static void CreateProfilerForCurrentGfxApi() {
   switch (s_DeviceType) {
   #if SUPPORT_OPENGL_UNIFIED && UNITY_ANDROID
   case kUnityGfxRendererOpenGLCore:
+  case kUnityGfxRendererOpenGLES20:
   case kUnityGfxRendererOpenGLES30: {
       Debug("OpenGL device");
       s_DrawcallTimer = std::make_unique<OpenGLDrawcallTimer>(Debug);
@@ -85,7 +82,14 @@ static void CreateProfilerForCurrentGfxApi() {
   #if SUPPORT_D3D9
   case kUnityGfxRendererD3D9: {
       Debug("DirectX 9 device");
-      s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(s_UnityInterfaces, Debug);
+
+      if (s_UnityInterfaces == nullptr) {
+          Debug("Unity interfaces is null!");
+          return;
+      }
+
+      IUnityGraphicsD3D9 * d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
+      s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
       break;
     }
   #endif
@@ -93,15 +97,15 @@ static void CreateProfilerForCurrentGfxApi() {
   #if SUPPORT_D3D11
   case kUnityGfxRendererD3D11: {
       Debug("DirectX 11 device");
-      s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(s_UnityInterfaces, Debug);
-      break;
-    }
-  #endif
 
-  #if SUPPORT_METAL && UNITY_IPHONE
-  case kUnityGfxRendererMetal: {
-      Debug("Metal device");
-      s_DrawcallTimer = std::unique_ptr<MetalDrawcallTimerAdapter>(new MetalDrawcallTimerAdapter(s_UnityInterfaces, Debug));
+      if (s_UnityInterfaces == nullptr) {
+          Debug("Unity interfaces is null!");
+          return;
+      }
+
+      // Load DirectX 11
+      IUnityGraphicsD3D11 * d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
+      s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(d3d11Interface, Debug);
       break;
     }
   #endif
@@ -261,9 +265,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEven
 // Utilities
 
 static void simple_print(const char* c) {
-#ifdef DEBUG
     std::cout << c << std::endl;
-#endif
 }
 
 static const char * GfxRendererToString(UnityGfxRenderer deviceType) {

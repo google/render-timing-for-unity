@@ -5,47 +5,39 @@
 
 #include <comdef.h>
 
-DX9DrawcallTimer::DX9DrawcallTimer(IUnityInterfaces* unityInterfaces, DebugFuncPtr debugFunc) : DrawcallTimer(debugFunc)
-{
-    IUnityGraphicsD3D9 * d3d = unityInterfaces->Get<IUnityGraphicsD3D9>();
+DX9DrawcallTimer::DX9DrawcallTimer(IUnityGraphicsD3D9* d3d, DebugFuncPtr debugFunc) : DrawcallTimer(debugFunc) {
     _d3dDevice = d3d->GetDevice();
-    if (_d3dDevice == nullptr)
-    {
+    if (_d3dDevice == nullptr) {
         Debug("D3D device is null!\n");
         return;
     }
 
     auto result = _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, nullptr);
-    if (result != S_OK)
-    {
+    if (result != S_OK) {
         Debug("Cannot not create timestamp queries");
         return;
     }
 
     result = _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMPDISJOINT, nullptr);
-    if (result != S_OK)
-    {
+    if (result != S_OK) {
         Debug("Cannot not create timestamp disjoint queries");
         return;
     }
 
     result = _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMPFREQ, nullptr);
-    if (result != S_OK)
-    {
+    if (result != S_OK) {
         Debug("Cannot not create timestamp frequency queries");
         return;
     }
 
-    for (int i = 0; i < MAX_QUERY_SETS; i++)
-    {
+    for (int i = 0; i < MAX_QUERY_SETS; i++) {
         _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMPDISJOINT, &_disjointQueries[i]);
         _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMPFREQ, &_frequencyQueries[i]);
     }
 
     _disjointQueries[_curFrame]->Issue(D3DISSUE_BEGIN);
 
-    for (auto &fullFrameQuery : _fullFrameQueries)
-    {
+    for (auto &fullFrameQuery : _fullFrameQueries) {
         _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &(fullFrameQuery.StartQuery));
         _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &(fullFrameQuery.EndQuery));
     }
@@ -53,19 +45,15 @@ DX9DrawcallTimer::DX9DrawcallTimer(IUnityInterfaces* unityInterfaces, DebugFuncP
     _fullFrameQueries[_curFrame].StartQuery->Issue(D3DISSUE_END);
 }
 
-void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams)
-{
+void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallParams) {
     DrawcallQuery drawcallQuery = {};
 
-    if (_timerPool.empty())
-    {
+    if (_timerPool.empty()) {
         IDirect3DQuery9* startQuery;
         auto queryResult = _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &startQuery);
-        if (queryResult != S_OK)
-        {
+        if (queryResult != S_OK) {
             Debug("Could not create a query object: ");
-            switch (queryResult)
-            {
+            switch (queryResult) {
             case E_OUTOFMEMORY:
                 Debug("Out of memory\n");
                 break;
@@ -83,11 +71,9 @@ void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPara
 
         IDirect3DQuery9* endQuery;
         queryResult = _d3dDevice->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &endQuery);
-        if (queryResult != S_OK)
-        {
+        if (queryResult != S_OK) {
             Debug("Could not create a query object: ");
-            switch (queryResult)
-            {
+            switch (queryResult) {
             case E_OUTOFMEMORY:
                 Debug("Out of memory");
                 break;
@@ -103,8 +89,7 @@ void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPara
         drawcallQuery.EndQuery = endQuery;
 
     }
-    else
-        {
+    else {
         drawcallQuery = _timerPool.back();
         _timerPool.pop_back();
     }
@@ -116,8 +101,7 @@ void DX9DrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams* drawcallPara
     Debug("Began a drawcall timer");
 }
 
-void DX9DrawcallTimer::End()
-{
+void DX9DrawcallTimer::End() {
     _curQuery.EndQuery->Issue(D3DISSUE_END);
     Debug("Ended a drawcall timer");
 }
@@ -137,8 +121,7 @@ void DX9DrawcallTimer::ResolveQueries()
     // Wait for data to become available. This will hurt the frame time a little but it's fine
     _disjointQueries[_curFrame]->GetData(&isDisjoint, sizeof(bool), D3DGETDATA_FLUSH);
 
-    if (isDisjoint)
-    {
+    if (isDisjoint) {
         Debug("Disjoint! Throwing away current frame\n");
         record = false;
     }
@@ -146,16 +129,14 @@ void DX9DrawcallTimer::ResolveQueries()
     uint64_t gpuFrequency = 0;
     _frequencyQueries[_curFrame]->GetData(&gpuFrequency, sizeof(uint64_t), D3DGETDATA_FLUSH);
 
-    if (record)
-    {
+    if (record) {
         uint64_t frameStart = 0, frameEnd = 0;
         curFullFrameQuery.StartQuery->GetData(&frameStart, sizeof(uint64_t), 0);
         curFullFrameQuery.EndQuery->GetData(&frameEnd, sizeof(uint64_t), 0);
 
         auto fullFrameTime = 1000 * double(frameEnd - frameStart) / double(gpuFrequency);
 
-        if (_frameCounter % 30 == 0)
-        {
+        if (_frameCounter % 30 == 0) {
             ss << "The frame took " << fullFrameTime << "ms total\n";
             Debug(ss.str().c_str());
         }
@@ -164,14 +145,11 @@ void DX9DrawcallTimer::ResolveQueries()
     std::unordered_map<UnityRenderingExtBeforeDrawCallParams, double> shaderTimings;
 
     // Collect raw GPU time for each shader
-    for (const auto& shaderTimers : _timers[_curFrame])
-    {
+    for (const auto& shaderTimers : _timers[_curFrame]) {
         uint64_t shaderTime = 0;
         uint64_t drawcallTime = 0;
-        for (const auto& timer : shaderTimers.second)
-        {
-            if (record)
-            {
+        for (const auto& timer : shaderTimers.second) {
+            if (record) {
                 UINT64 startTime, endTime;
                 timer.StartQuery->GetData(&startTime, sizeof(UINT64), 0);
                 timer.EndQuery->GetData(&endTime, sizeof(UINT64), 0);
@@ -183,14 +161,12 @@ void DX9DrawcallTimer::ResolveQueries()
             _timerPool.push_back(timer);
         }
 
-        if (record)
-        {
+        if (record) {
             const auto& shader = shaderTimers.first;
 
             shaderTimings[shader] = 1000 * double(shaderTime) / double(gpuFrequency);
 
-            if (_frameCounter % 30 == 0 && shaderTimings[shader] > 0)
-            {
+            if (_frameCounter % 30 == 0 && shaderTimings[shader] > 0) {
                 ss.str(std::string());
                 ss << "shaderTime: " << shaderTime << " GPU frequency: " << gpuFrequency;
                 Debug(ss.str().c_str());

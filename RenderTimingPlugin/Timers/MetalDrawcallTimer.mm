@@ -43,6 +43,9 @@ void MetalDrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams *drawcallPa
 
     auto cmdBuf = _unityMetal->CurrentCommandBuffer();
     [cmdBuf addCompletedHandler:getTimingInfo];
+
+    _curQuery = DrawcallQuery();
+    _timers[_curFrame][*drawcallParams] = _curQuery;
 }
 
 void MetalDrawcallTimer::End()
@@ -50,6 +53,29 @@ void MetalDrawcallTimer::End()
 
 void MetalDrawcallTimer::ResolveQueries()
 {
+    CFTimeInterval timeFromCallbacks = GetTotalGpuTimeFromQueries();
+
+    _queriesLock.lock()
+    _queries.clear();
+
+    for(const auto& bufWrapper : _timers[_curFrame]) {
+        id<MTLCommandBuffer> buf = bufWrapper.second.StartQuery;
+        [buf waitUntilCompleted];
+
+        MetalQuery query = {};
+        query.startTime = buf.GPUStartTime;
+        query.endTime = buf.GPUEndTime;
+
+        _queries.push_back(query);
+    }
+    _queriesLock.unlock();
+
+    CFTimeInterval timeFromCompletedBuffers = GetTotalGpuTimeFromQueries();
+
+    _lastFrameTime = std::max(timeFromCallbacks, timeFromCompletedBuffers);
+}
+
+CFTimeInterval MetalDrawcallTimer::GetTotalGpuTimeFromQueries() {
     // Go through each query, getting the start and end time. Keep track of the blocks of time available, expand blocks
     // when we see an overlapping block
 
@@ -81,7 +107,7 @@ void MetalDrawcallTimer::ResolveQueries()
     }
     _queriesLock.unlock();
 
-    // At this point, gpuBusyBLocks is sorted by startTime, and it shouldn't have any overlapping blocks. We can sum up
+    // At this point, gpuBusyBlocks is sorted by startTime, and it shouldn't have any overlapping blocks. We can sum up
     // all the durations and report back the final number
     CFTimeInterval totalGpuTime = 0;
     for(const MetalQuery& block : gpuBusyBlocks)
@@ -89,7 +115,7 @@ void MetalDrawcallTimer::ResolveQueries()
         totalGpuTime += block.endTime - block.startTime;
     }
 
-    _lastFrameTime = totalGpuTime;
+    return totalGpuTime;
 }
 
 #endif

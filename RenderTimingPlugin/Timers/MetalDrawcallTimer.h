@@ -17,7 +17,7 @@ struct MetalQuery {
     bool overlaps(const MetalQuery& other);
 };
 
-class UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API MetalDrawcallTimer : public DrawcallTimer<uint32_t> {
+class UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API MetalDrawcallTimer : public DrawcallTimer<id<MTLCommandBuffer>> {
 public:
     MetalDrawcallTimer(IUnityInterfaces* unityInterfaces, DebugFuncPtr debugFunc);
 
@@ -30,6 +30,8 @@ private:
 
     std::mutex _queriesLock;
     std::list<MetalQuery> _queries;
+
+    CFTimerInterval GetTotalGpuTimeFromQueries();
 };
 
 #endif

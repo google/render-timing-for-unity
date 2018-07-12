@@ -64,7 +64,7 @@ public:
      * \brief Advances the frame counter so we use a different set of queries (the queries are double-buffered), and 
      * makes the calls necessary to resolve the in-flight queries
      */
-    virtual void AdvanceFrame();
+    void AdvanceFrame();
 
     /*!
      * \brief Makes API-specific calls to resolve in-flight queries for the last frame
@@ -76,7 +76,7 @@ public:
      */
     const std::unordered_map<ShaderNames, double>& GetMostRecentShaderExecutionTimes() const;
 
-    virtual double GetLastFrameGpuTime() const;
+    double GetLastFrameGpuTime() const;
 
     void SetDebugFunction(DebugFuncPtr func);
 

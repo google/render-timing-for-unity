@@ -40,15 +40,12 @@ add_library(RenderTimingPlugin SHARED ${COMMON_SOURCE})
 # that, but for now OpenGL isn't supported on MacOS
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
-    set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR}/Android)
+    set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR}/Android/libs/armeabi-v7a)
     add_definitions(-DUNITY_ANDROID)
     target_link_libraries(RenderTimingPlugin GLESv3)
 
 elseif(APPLE)
     set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR})
-
-    add_subdirectory(MetalPlugin)
-    target_link_libraries(RenderTimingPlugin RenderTimingPlugin_Metal)
 
 else()
     # Windows only. Linux is not supported
