@@ -25,7 +25,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using AOT;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 public abstract class GpuTimerBase
 {
@@ -97,18 +96,30 @@ public abstract class GpuTimerBase
 
     private static GpuTimerBase MakeGpuTimer()
     {
+        // I don't care about GPU timing on marketing's standalone builds
+        #if UNITY_EDITOR || UNITY_STANDALONE
+        return new DummyGpuTimer();
+
+        #else
+        
         bool canUseRenderTimer = false;
 
-#if UNITY_ANDROID && !UNITY_EDITOR
+        #if UNITY_ANDROID 
         bool sdkAllowed = false;
         using (var version = new AndroidJavaClass("android.os.Build$VERSION")) 
         {
             sdkAllowed = version.GetStatic<int>("SDK_INT") >= 18;
         }
-        canUseRenderTimer |= sdkAllowed;
-#endif
-
-        canUseRenderTimer |= SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3;
+    
+        bool usingSupportedApi = SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3;
+    
+        canUseRenderTimer |= sdkAllowed && usingSupportedApi;
+    
+        #elif UNITY_IOS
+        bool usingSupportedApi = SystemInfo.graphicsDeviceType == GraphicsDeviceType.Metal;
+        canUseRenderTimer |= usingSupportedApi;
+        
+        #endif
 
         // Desktop APIs so we get data in editor
         canUseRenderTimer |= SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11;
@@ -119,12 +130,23 @@ public abstract class GpuTimerBase
 
         if (canUseRenderTimer)
         {
+            if (Log.IsEnabled(null, LogMessageLevel.Info))
+            {
+                Log.Info(null, "GpuTime", "Creating a real GPU timer");
+            }
+
             return new RealGpuTimer();
         }
         else
         {
+            if (Log.IsEnabled(null, LogMessageLevel.Info))
+            {
+                Log.Info(null, "GpuTime", "Creating a dummy GPU timer");
+            }
+            
             return new DummyGpuTimer();
         }
+        #endif
     }
 
     private static GpuTimerBase _instance = null;
@@ -134,15 +156,14 @@ public abstract class GpuTimerBase
     public abstract void Update();
 }
 
-/// <summary>
-/// Performs actual GPU timing, rather than 
-/// </summary>
+// GPU timing is not supported, except on device
+#if !UNITY_EDITOR && !UNITY_STANDALONE
 public class RealGpuTimer : GpuTimerBase
 {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void MyDelegate(string str);
+    private delegate void LogDelegate(string str);
 
-    [MonoPInvokeCallback(typeof(MyDelegate))]
+    [MonoPInvokeCallback(typeof(LogDelegate))]
     static void DebugCallback(string str)
     {
         Debug.LogWarning("RenderTimingPlugin: " + str);
@@ -152,11 +173,15 @@ public class RealGpuTimer : GpuTimerBase
 
     protected internal RealGpuTimer()
     {
-        MyDelegate callbackDelegate = DebugCallback;
-        IntPtr intptrDelegate = Marshal.GetFunctionPointerForDelegate(callbackDelegate);
-        SetDebugFunction(intptrDelegate);
+        LogDelegate logCallback = DebugCallback;
+        IntPtr intPtrLogCallback = Marshal.GetFunctionPointerForDelegate(logCallback);
+        SetDebugFunction(intPtrLogCallback);
 
         ShaderTimings = new List<ShaderTiming>();
+    
+        #if UNITY_IOS
+        InitializeRenderTiming();
+        #endif
     }
 
     /// <summary>
@@ -164,10 +189,12 @@ public class RealGpuTimer : GpuTimerBase
     /// </summary>
     public override void Update()
     {
-#if UNITY_ANDROID || UNITY_EDITOR
+        // Don't need to check platforms here - this class can only be instantiated by GpuTimerBase::MakeGpuTimer, and 
+        // that function checks the platform and API in use. This code cannot be active in editor or on unsupported
+        // platforms
+        
         GL.IssuePluginEvent(GetOnFrameEndFunction(), 0 /* unused */);
-#endif
-
+        
         GetShaderTimings();
         GpuTime = GetLastFrameGpuTime();
     }
@@ -190,25 +217,23 @@ public class RealGpuTimer : GpuTimerBase
     [DllImport("RenderTimingPlugin")]
     private static extern float GetLastFrameGpuTime();
   
-#else
-    private static void SetDebugFunction(IntPtr fp) { }
+#elif UNITY_IOS
+    [DllImport("__Internal")]
+    private static extern void InitializeRenderTiming();
+    
+    [DllImport ("__Internal")]
+    private static extern void SetDebugFunction(IntPtr ftp);
+      
+    [DllImport ("__Internal")]
+    private static extern IntPtr GetOnFrameEndFunction();
+    
+    [DllImport("__Internal")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool GetLastFrameShaderTimings(out IntPtr arrayPtr, out int size);
+    
+    [DllImport("__Internal")]
+    private static extern float GetLastFrameGpuTime(); 
 
-    private static IntPtr GetOnFrameEndFunction()
-    {
-        return IntPtr.Zero;
-    }
-
-    private static bool GetLastFrameShaderTimings(out IntPtr arrayPtr, out int size)
-    {
-        size = 0;
-        arrayPtr = IntPtr.Zero;
-        return false;
-    }
-
-    private static float GetLastFrameGpuTime()
-    {
-        return 0;
-    }
 #endif
 
     #endregion
@@ -234,7 +259,8 @@ public class RealGpuTimer : GpuTimerBase
             arrayValue = new IntPtr(arrayValue.ToInt64() + shaderTimingSize);
         }
     }
-}
+}   
+#endif
 
 /// <summary>
 /// Used when the actual GPU timer isn't available, such as when we're using OpenGL ES 2

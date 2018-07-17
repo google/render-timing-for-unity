@@ -38,6 +38,10 @@
 #include "Timers/OpenGLDrawcallTimer.h"
 #endif
 
+#if SUPPORT_METAL && UNITY_IOS
+#include "Timers/MetalDrawcallTimerAdapter.h"
+#endif
+
 #if SUPPORT_D3D9
 #include "Timers/DX9DrawcallTimer.h"
 #endif
@@ -61,67 +65,56 @@ static DebugFuncPtr Debug = simple_print;
 // --------------------------------------------------------------------------
 // GraphicsDeviceEvent
 
-static void CreateProfilerForCurrentGfxApi() {
-
-  if (s_UnityInterfaces == nullptr) {
-    Debug("Unity interfaces is null!");
-    return;
-  }
-
-  switch (s_DeviceType) {
-  #if SUPPORT_OPENGL_UNIFIED && UNITY_ANDROID
-  case kUnityGfxRendererOpenGLCore:
-  case kUnityGfxRendererOpenGLES20:
-  case kUnityGfxRendererOpenGLES30: {
-      Debug("OpenGL device");
-      s_DrawcallTimer = std::make_unique<OpenGLDrawcallTimer>(Debug);
-      break;
+static void CreateProfilerForCurrentGfxApi()
+{
+    if (s_UnityInterfaces == nullptr) 
+    {
+        Debug("Unity interfaces is null!");
+        return;
     }
-  #endif
 
-  #if SUPPORT_D3D9
-  case kUnityGfxRendererD3D9: {
-      Debug("DirectX 9 device");
+    switch (s_DeviceType) {
+#if SUPPORT_OPENGL_UNIFIED && UNITY_ANDROID
+    case kUnityGfxRendererOpenGLCore:
+    case kUnityGfxRendererOpenGLES30: 
+        Debug("OpenGL device");
+        s_DrawcallTimer = std::make_unique<OpenGLDrawcallTimer>(Debug);
+        break;
+#endif
 
-      if (s_UnityInterfaces == nullptr) {
-          Debug("Unity interfaces is null!");
-          return;
-      }
+#if SUPPORT_D3D9
+    case kUnityGfxRendererD3D9: 
+        Debug("DirectX 9 device");
+        s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(s_UnityInterfaces, Debug);
+        break;
+#endif
 
-      IUnityGraphicsD3D9 * d3d9Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D9>();
-      s_DrawcallTimer = std::make_unique<DX9DrawcallTimer>(d3d9Interface, Debug);
-      break;
+#if SUPPORT_D3D11
+    case kUnityGfxRendererD3D11: 
+        Debug("DirectX 11 device");
+        s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(s_UnityInterfaces, Debug);
+        break;
+#endif
+
+#if SUPPORT_METAL && UNITY_IOS
+    case kUnityGfxRendererMetal:
+        Debug("Metal device");
+        s_DrawcallTimer = std::unique_ptr<MetalDrawcallTimerAdapter>(new MetalDrawcallTimerAdapter(s_UnityInterfaces, Debug));
+        break;
+#endif
+
+    default: 
+        Debug("Graphics api ");
+        Debug(GfxRendererToString(s_DeviceType));
+        Debug(" not supported\n");
     }
-  #endif
-
-  #if SUPPORT_D3D11
-  case kUnityGfxRendererD3D11: {
-      Debug("DirectX 11 device");
-
-      if (s_UnityInterfaces == nullptr) {
-          Debug("Unity interfaces is null!");
-          return;
-      }
-
-      // Load DirectX 11
-      IUnityGraphicsD3D11 * d3d11Interface = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-      s_DrawcallTimer = std::make_unique<DX11DrawcallTimer>(d3d11Interface, Debug);
-      break;
-    }
-  #endif
-
-  default: {
-      Debug("Graphics api ");
-      Debug(GfxRendererToString(s_DeviceType));
-      Debug(" not supported\n");
-    }
-  }
 }
 
 // --------------------------------------------------------------------------
 // C# Interface
 
-extern "C" typedef struct {
+extern "C" typedef struct 
+{
     const char* VertexName;
     const char* GeometryName;
     const char* HullName;
@@ -131,31 +124,38 @@ extern "C" typedef struct {
     double Time;
 } ShaderTime;
 
-static void UNITY_INTERFACE_API OnFrameEnd(int eventID) {
-    if(s_DrawcallTimer) {
+static void UNITY_INTERFACE_API OnFrameEnd(int eventID) 
+{
+    if(s_DrawcallTimer)
+    {
         s_DrawcallTimer->AdvanceFrame();
     }
 }
 
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() {
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOnFrameEndFunction() 
+{
     return OnFrameEnd;
 }
 
-extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTimings(ShaderTime** times, int32_t* size) {
+extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTimings(ShaderTime** times, int32_t* size) 
+{
     static std::vector<ShaderTime> timingsList;
 
-    if (!s_DrawcallTimer) {
+    if (!s_DrawcallTimer) 
+    {
         return false;
     }
 
     const auto& timings = s_DrawcallTimer->GetMostRecentShaderExecutionTimes();
-    if (timings.empty()) {
+    if (timings.empty()) 
+    {
         return false;
     }
 
     timingsList.clear();
     timingsList.reserve(timings.size());
-    for (const auto& timing : timings) {
+    for (const auto& timing : timings) 
+    {
         ShaderTime time;
         time.VertexName = timing.first.Vertex.c_str();
         time.GeometryName = timing.first.Geometry.c_str();
@@ -168,7 +168,8 @@ extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTim
         timingsList.push_back(time);
     }
 
-    if (timingsList.empty()) {
+    if (timingsList.empty()) 
+    {
         return false;
     }
 
@@ -180,8 +181,10 @@ extern "C" bool UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameShaderTim
     return true;
 }
 
-extern "C" float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameGpuTime() {
-    if (!s_DrawcallTimer) {
+extern "C" float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameGpuTime()
+{
+    if (!s_DrawcallTimer) 
+    {
         return 0;
     }
 
@@ -189,44 +192,54 @@ extern "C" float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetLastFrameGpuTime(
 }
 
 // Register logging function which takes a string
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDebugFunction(DebugFuncPtr fp) {
-    // Debug = fp;
-    // if (s_DrawcallTimer) {
-    //     s_DrawcallTimer->SetDebugFunction(Debug);
-    // }
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDebugFunction(DebugFuncPtr fp) 
+{
+    Debug = fp;
+    if (s_DrawcallTimer) 
+    {
+        s_DrawcallTimer->SetDebugFunction(Debug);
+    }
 }
 
-static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
-  switch (eventType) {
-  case kUnityGfxDeviceEventInitialize: {
-      s_DeviceType = s_Graphics->GetRenderer();
-      CreateProfilerForCurrentGfxApi();
-      break;
+static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
+{
+    switch (eventType) 
+    {
+    case kUnityGfxDeviceEventInitialize:
+        s_DeviceType = s_Graphics->GetRenderer();
+        CreateProfilerForCurrentGfxApi();
+        break;
+
+    case kUnityGfxDeviceEventShutdown:
+        s_DeviceType = kUnityGfxRendererNull;
+        if (s_DrawcallTimer) 
+        {
+            s_DrawcallTimer.release();
+        }
+        break;
+
+    case kUnityGfxDeviceEventBeforeReset:
+        break;
+
+    case kUnityGfxDeviceEventAfterReset:
+        break;
     }
-  
-  case kUnityGfxDeviceEventShutdown: {
-      s_DeviceType = kUnityGfxRendererNull;
-      if(s_DrawcallTimer) {
-        s_DrawcallTimer.release();
-      }
-      break;
-    }
-  
-  case kUnityGfxDeviceEventBeforeReset: {
-      break;
-    }
-  
-  case kUnityGfxDeviceEventAfterReset: {
-      break;
-    }
-  };
 }
 
 // --------------------------------------------------------------------------
 // UnitySetInterfaces
 
-extern "C" void  UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces) {
-  freopen("debug.txt", "a", stdout);
+#if UNITY_IOS
+// iOS doesn't support DLLs or anything useful, so we have to register the plugin manually
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeRenderTiming() 
+{
+    UnityRegisterRenderingPluginV5(&UnityPluginLoad, &UnityPluginUnload);
+    Debug("Registered Plugin");
+}
+#endif
+
+extern "C" void  UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces) 
+{
   s_UnityInterfaces = unityInterfaces;
   s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
   s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
@@ -237,79 +250,85 @@ extern "C" void  UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUni
   Debug("Loaded plugin\n");
 }
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
-  // Debug("About to unload plugin\n");
-  // s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
+{
+  Debug("About to unload plugin\n");
+  s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
 }
 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEvent(UnityRenderingExtEventType event, void* data) {
-    if (!s_DrawcallTimer) {
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityRenderingExtEvent(UnityRenderingExtEventType event, void* data)
+{
+    if (!s_DrawcallTimer)
+    {
         return;
     }
-  switch(event) {
-  case kUnityRenderingExtEventBeforeDrawCall: {
-      // Start rendering time query
-      s_DrawcallTimer->Start(reinterpret_cast<UnityRenderingExtBeforeDrawCallParams*>(data));
-      break;
+
+    switch (event)
+    {
+    case kUnityRenderingExtEventBeforeDrawCall:
+        // Start rendering time query
+        s_DrawcallTimer->Start(reinterpret_cast<UnityRenderingExtBeforeDrawCallParams*>(data));
+        break;
+
+    case kUnityRenderingExtEventAfterDrawCall:
+        // End the timing query and save it somewhere
+        s_DrawcallTimer->End();
+        break;
     }
-    
-  case kUnityRenderingExtEventAfterDrawCall: {
-      // End the timing query and save it somewhere
-      s_DrawcallTimer->End();
-      break;
-    }
-  }
 }
 
 // --------------------------------------------------------------------------
 // Utilities
 
-static void simple_print(const char* c) {
-    std::cout << c << std::endl;
+static void simple_print(const char* c) 
+{
+    std::cerr << c << std::endl;
 }
 
-static const char * GfxRendererToString(UnityGfxRenderer deviceType) {
-  switch(deviceType) {
+static const char * GfxRendererToString(UnityGfxRenderer deviceType)
+{
+    switch (deviceType)
+    {
     case kUnityGfxRendererD3D9:
-      return "Direct3D 9";
+        return "Direct3D 9";
 
     case kUnityGfxRendererD3D11:
-      return "Direct3D 11";
+        return "Direct3D 11";
 
     case kUnityGfxRendererGCM:
-      return "PlayStation 3";
+        return "PlayStation 3";
 
     case kUnityGfxRendererNull:
-      return "null device (used in batch mode)";
+        return "null device (used in batch mode)";
 
     case kUnityGfxRendererOpenGLES20:
-      return "OpenGL ES 2.0";
+        return "OpenGL ES 2.0";
 
     case kUnityGfxRendererOpenGLES30:
-      return "OpenGL ES 3.0";
+        return "OpenGL ES 3.0";
 
     case kUnityGfxRendererGXM:
-      return "PlayStation Vita";
+        return "PlayStation Vita";
 
     case kUnityGfxRendererPS4:
-      return "PlayStation 4";
+        return "PlayStation 4";
 
     case kUnityGfxRendererXboxOne:
-      return "Xbox One";
+        return "Xbox One";
 
     case kUnityGfxRendererMetal:
-      return "iOS Metal";
+        return "iOS Metal";
 
     case kUnityGfxRendererOpenGLCore:
-      return "OpenGL core";
+        return "OpenGL core";
 
     case kUnityGfxRendererD3D12:
-      return "Direct3D 12";
+        return "Direct3D 12";
 
     case kUnityGfxRendererVulkan:
-      return "Vulkan";
+        return "Vulkan";
 
     default:
-      return "Unknown Device Type";
-  }
+        return "Unknown Device Type";
+    }
 }

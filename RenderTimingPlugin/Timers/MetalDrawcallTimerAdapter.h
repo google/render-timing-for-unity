@@ -2,11 +2,12 @@
 
 #include "IDrawcallTimer.h"
 
-#if SUPPORT_METAL && UNITY_IPHONE
+#if SUPPORT_METAL
 
 class MetalDrawcallTimer;
 
-class UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API MetalDrawcallTimerAdapter : public DrawcallTimer<uint32_t> {
+class UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API MetalDrawcallTimerAdapter : public DrawcallTimer<uint32_t> 
+{
 public:
     MetalDrawcallTimerAdapter(IUnityInterfaces* unityInterfaces, DebugFuncPtr debugFunc);
     ~MetalDrawcallTimerAdapter();

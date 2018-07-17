@@ -47,6 +47,9 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 elseif(APPLE)
     set_output_directories(RenderTimingPlugin ${UNITY_PLUGINS_DIR})
 
+    add_subdirectory(MetalPlugin)
+    target_link_libraries(RenderTimingPlugin RenderTimingPlugin_Metal)
+
 else()
     # Windows only. Linux is not supported
 

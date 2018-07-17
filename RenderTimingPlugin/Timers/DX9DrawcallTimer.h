@@ -9,7 +9,7 @@
 
 class DX9DrawcallTimer : public DrawcallTimer<IDirect3DQuery9*> {
 public:
-    DX9DrawcallTimer(IUnityGraphicsD3D9* d3d, DebugFuncPtr debugFunc);
+    DX9DrawcallTimer(IUnityInterfaces* unityInterfaces, DebugFuncPtr debugFunc);
 
     /*
     * Inherited from DrawcallTimer

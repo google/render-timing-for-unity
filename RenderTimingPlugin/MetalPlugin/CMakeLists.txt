@@ -14,8 +14,8 @@ function(set_output_directories target output_dir)
 endfunction()
 
 set(METAL_SOURCE
-        ../Timers/MetalDrawcallTimer.h ../Timers/MetalDrawcallTimer.mm
-        ../Timers/MetalDrawcallTimerAdapter.h ../Timers/MetalDrawcallTimerAdapter.cpp)
+        ${CMAKE_CURRENT_LIST_DIR}/../Timers/MetalDrawcallTimer.h ${CMAKE_CURRENT_LIST_DIR}/../Timers/MetalDrawcallTimer.mm
+        ${CMAKE_CURRENT_LIST_DIR}/../Timers/MetalDrawcallTimerAdapter.h ${CMAKE_CURRENT_LIST_DIR}/../Timers/MetalDrawcallTimerAdapter.mm)
 
 add_library(RenderTimingPlugin_Metal ${METAL_SOURCE})
 set(CMAKE_C_FLAGS "-x objective-c")

@@ -1,6 +1,9 @@
+#import <sstream>
 #import "MetalDrawcallTimer.h"
 
-#if SUPPORT_METAL && UNITY_IPHONE
+#if SUPPORT_METAL
+
+#import "UnityAppController.h"
 
 bool MetalQuery::overlaps(const MetalQuery &other)
 {
@@ -22,15 +25,20 @@ bool compare_queries(const MetalQuery& first, const MetalQuery& second)
     return first.startTime < second.endTime;
 }
 
+MetalDrawcallTimer* MetalDrawcallTimer::_instance;
+
 MetalDrawcallTimer::MetalDrawcallTimer(IUnityInterfaces* unityInterfaces, DebugFuncPtr debugFunc) :
         DrawcallTimer(debugFunc)
 {
       _unityMetal = unityInterfaces->Get<IUnityGraphicsMetal>();
+
+      _instance = this;
 }
 
 void MetalDrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams *drawcallParams)
 {
-    MTLCommandBufferHandler getTimingInfo = [this](id<MTLCommandBuffer> buf)
+    auto cmdBuf = _unityMetal->CurrentCommandBuffer();
+    [cmdBuf addCompletedHandler:^(id<MTLCommandBuffer> buf)
     {
         MetalQuery query = {};
         query.startTime = buf.GPUStartTime;
@@ -39,13 +47,10 @@ void MetalDrawcallTimer::Start(UnityRenderingExtBeforeDrawCallParams *drawcallPa
         _queriesLock.lock();
         _queries.push_back(query);
         _queriesLock.unlock();
-    };
-
-    auto cmdBuf = _unityMetal->CurrentCommandBuffer();
-    [cmdBuf addCompletedHandler:getTimingInfo];
+    }];
 
     _curQuery = DrawcallQuery();
-    _timers[_curFrame][*drawcallParams] = _curQuery;
+    _timers[_curFrame][*drawcallParams].push_back(_curQuery);
 }
 
 void MetalDrawcallTimer::End()
@@ -53,26 +58,47 @@ void MetalDrawcallTimer::End()
 
 void MetalDrawcallTimer::ResolveQueries()
 {
+    // Get time from the current command buffer - which should work at least a little bit, right?
+    auto cmdBuf = _unityMetal->CurrentCommandBuffer();
+    [cmdBuf addCompletedHandler:^(id<MTLCommandBuffer>) {
+        MetalQuery query = {};
+        query.startTime = cmdBuf.GPUStartTime;
+        query.endTime = cmdBuf.GPUEndTime;
+
+        _queriesLock.lock();
+        _queries.push_back(query);
+        _queriesLock.unlock();
+    }];
+
     CFTimeInterval timeFromCallbacks = GetTotalGpuTimeFromQueries();
 
-    _queriesLock.lock()
+    _queriesLock.lock();
     _queries.clear();
 
     for(const auto& bufWrapper : _timers[_curFrame]) {
-        id<MTLCommandBuffer> buf = bufWrapper.second.StartQuery;
-        [buf waitUntilCompleted];
+        for(const DrawcallQuery& timer : bufWrapper.second) {
+            id <MTLCommandBuffer> buf = timer.StartQuery;
+            [buf waitUntilCompleted];
 
-        MetalQuery query = {};
-        query.startTime = buf.GPUStartTime;
-        query.endTime = buf.GPUEndTime;
+            MetalQuery query = {};
+            query.startTime = buf.GPUStartTime;
+            query.endTime = buf.GPUEndTime;
 
-        _queries.push_back(query);
+            _queries.push_back(query);
+        }
     }
     _queriesLock.unlock();
 
     CFTimeInterval timeFromCompletedBuffers = GetTotalGpuTimeFromQueries();
 
+    std::stringstream ss;
+    ss << "Time from callbacks: " << timeFromCallbacks << ", time from completed buffers: " << timeFromCompletedBuffers << "\n";
+    Debug(ss.str().c_str());
+
     _lastFrameTime = std::max(timeFromCallbacks, timeFromCompletedBuffers);
+
+    // Apple's things report the time in seconds, but we want it in ms
+    _lastFrameTime *= 1000;
 }
 
 CFTimeInterval MetalDrawcallTimer::GetTotalGpuTimeFromQueries() {
@@ -116,6 +142,10 @@ CFTimeInterval MetalDrawcallTimer::GetTotalGpuTimeFromQueries() {
     }
 
     return totalGpuTime;
+}
+
+MetalDrawcallTimer *MetalDrawcallTimer::GetInstance() {
+    return _instance;
 }
 
 #endif

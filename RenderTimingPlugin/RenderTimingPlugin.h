@@ -18,20 +18,34 @@
 
 #include "Unity/IUnityInterface.h"
 
-// Which platform we are on?
-#if _MSC_VER
-  #define UNITY_WIN 1
-  #define UNITY_ANDROID 1
-#elif defined(__APPLE__)
-  #if defined(__arm__)
+// If a platform is already defined, don't try to figure out which one we're on
+#if !defined(UNITY_IOS) && !defined(UNITY_WIN) && !defined(UNITY_ANDROID) && !defined (UNITY_IPHONE) && !defined(UNITY_IOS) && !defined(UNITY_OSX) && !defined(UNITY_METRO) && !defined(UNITY_LINUX)
+  #warning Platform is not already defined - figuring it out
+  // Which platform we are on?
+  #if _MSC_VER
+    #define UNITY_WIN 1
+    #define UNITY_ANDROID 1
+
+  #elif TARGET_OS_IPHONE
     #define UNITY_IPHONE 1
+
+  #elif defined(__APPLE__)
+    #if defined(__arm__)
+      #define UNITY_IPHONE 1
+    #else
+      #define UNITY_OSX 1
+    #endif
+
+  #elif defined(UNITY_METRO) || defined(UNITY_ANDROID) || defined(UNITY_LINUX)
+    // these are defined externally
+
   #else
-    #define UNITY_OSX 1
+    #error "Unknown platform!"
   #endif
-#elif defined(UNITY_METRO) || defined(UNITY_ANDROID) || defined(UNITY_LINUX)
-// these are defined externally
-#else
-#error "Unknown platform!"
+#endif
+
+#ifdef UNITY_IPHONE
+#define UNITY_IOS 1
 #endif
 
 // Which graphics device APIs we possibly support?
@@ -66,6 +80,10 @@
   #define SUPPORT_OPENGL_LEGACY 1
   #define SUPPORT_OPENGL_UNIFIED 1
   #define SUPPORT_OPENGL_CORE 1
+#endif
+
+#if UNITY_OSX
+  #define SUPPORT_METAL 1
 #endif
 
 typedef void(*DebugFuncPtr)(const char*);

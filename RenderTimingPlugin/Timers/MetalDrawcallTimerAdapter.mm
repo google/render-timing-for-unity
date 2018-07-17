@@ -1,6 +1,6 @@
 #include "MetalDrawcallTimerAdapter.h"
 
-#if SUPPORT_METAL && UNITY_IPHONE
+#if SUPPORT_METAL
 
 #include "MetalDrawcallTimer.h"
 

@@ -2,7 +2,8 @@
 
 #include <iostream>
 
-void IDrawcallTimer::AdvanceFrame() {
+void IDrawcallTimer::AdvanceFrame()
+{
     ResolveQueries();
 
     _frameCounter++;
@@ -28,31 +29,38 @@ uint8_t IDrawcallTimer::GetLastFrameIndex()
     return static_cast<uint8_t>((_frameCounter - 1) % MAX_QUERY_SETS);
 }
 
-const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetMostRecentShaderExecutionTimes() const {
+const std::unordered_map<ShaderNames, double>& IDrawcallTimer::GetMostRecentShaderExecutionTimes() const
+{
     return _shaderTimes;
 }
 
-double IDrawcallTimer::GetLastFrameGpuTime() const {
+double IDrawcallTimer::GetLastFrameGpuTime() const
+{
     return _lastFrameTime;
 }
 
-bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {
+bool operator==(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs)
+{
     return std::hash<UnityRenderingExtBeforeDrawCallParams>()(lhs) == std::hash<UnityRenderingExtBeforeDrawCallParams>()(rhs);
 }
 
-bool operator!=(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs) {
+bool operator!=(const UnityRenderingExtBeforeDrawCallParams& lhs, const UnityRenderingExtBeforeDrawCallParams rhs)
+{
     return !(lhs == rhs);
 }
 
-bool operator==(const ShaderNames& lhs, const ShaderNames rhs) {
+bool operator==(const ShaderNames& lhs, const ShaderNames rhs) 
+{
     return std::hash<ShaderNames>()(lhs) == std::hash<ShaderNames>()(rhs);
 }
 
-bool operator!=(const ShaderNames& lhs, const ShaderNames rhs) {
+bool operator!=(const ShaderNames& lhs, const ShaderNames rhs) 
+{
     return !(lhs == rhs);
 }
 
-namespace std {
+namespace std 
+{
     std::size_t hash<UnityRenderingExtBeforeDrawCallParams>::operator()(const UnityRenderingExtBeforeDrawCallParams & k) const
     {
         return reinterpret_cast<intptr_t>(k.vertexShader)
