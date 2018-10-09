@@ -1,0 +1,15 @@
+com.atlassian.applinks.spi.link.MutatingApplicationLinkService
+com.atlassian.applinks.spi.util.TypeAccessor
+com.atlassian.event.api.EventPublisher
+com.atlassian.jira.bc.user.search.UserSearchService
+com.atlassian.jira.project.ProjectManager
+com.atlassian.jira.security.GlobalPermissionManager
+com.atlassian.jira.security.JiraAuthenticationContext
+com.atlassian.jira.security.groups.GroupManager
+com.atlassian.jira.user.UserPropertyManager
+com.atlassian.jira.user.util.UserManager#jiraUserManager
+com.atlassian.oauth.serviceprovider.ServiceProviderConsumerStore
+com.atlassian.sal.api.auth.LoginUriProvider
+com.atlassian.sal.api.user.UserManager
+com.atlassian.scheduler.SchedulerService
+com.atlassian.templaterenderer.TemplateRenderer
